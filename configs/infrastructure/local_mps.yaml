@@ -1,0 +1,12 @@
+# @package infrastructure
+# Local macOS development config using MPS (Apple Silicon)
+name: local_mps
+
+storage:
+  base_dir: /Users/jamie/Projects/diffing-toolkit/data
+  checkpoint_dir: ${infrastructure.storage.base_dir}/checkpoints
+  logs_dir: ${infrastructure.storage.base_dir}/logs
+
+device_map:
+  base: mps
+  finetuned: mps
