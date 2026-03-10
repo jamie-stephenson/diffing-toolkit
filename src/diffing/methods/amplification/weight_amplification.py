@@ -15,13 +15,10 @@ from diffing.utils.agents.diffing_method_agent import DiffingMethodAgent
 from collections import defaultdict
 from diffing.utils.configs import CONFIGS_DIR
 from diffing.utils.prompts import read_prompts
-from vllm import LLM, SamplingParams
-from vllm.inputs import TokensPrompt
-from vllm.lora.request import LoRARequest
 from diffing.utils.model import load_model_from_config
 
 
-def get_lora_int_id(server: LLM, config_str: str) -> int:
+def get_lora_int_id(server, config_str: str) -> int:
     """
     Get or allocate a unique lora_int_id for a compiled config string.
 
@@ -95,7 +92,7 @@ class WeightDifferenceAmplification(DiffingMethod):
     def __init__(self, cfg: DictConfig, enable_chat: bool = False):
         super().__init__(cfg, enable_chat)
         self.default_tokenizer = "base"
-        self._vllm_server: LLM | None = None
+        self._vllm_server = None
         self._vllm_server_config: dict | None = None
 
     def run(self) -> dict[str, Any]:
@@ -145,6 +142,10 @@ class WeightDifferenceAmplification(DiffingMethod):
         compiled_adapters_dir.mkdir(parents=True, exist_ok=True)
 
         sampling_cfg = run_cfg.sampling
+        from vllm import SamplingParams
+        from vllm.inputs import TokensPrompt
+        from vllm.lora.request import LoRARequest
+
         vllm_sampling = SamplingParams(
             temperature=sampling_cfg.get("temperature", 1.0),
             top_p=sampling_cfg.get("top_p", 0.9),
@@ -375,7 +376,7 @@ class WeightDifferenceAmplification(DiffingMethod):
 
         return result
 
-    def create_vllm_server(self, vllm_kwargs: dict | None = None) -> LLM:
+    def create_vllm_server(self, vllm_kwargs: dict | None = None):
         """
         Create a new vLLM server with the given kwargs.
 
@@ -404,7 +405,7 @@ class WeightDifferenceAmplification(DiffingMethod):
         )
 
     @property
-    def vllm_server(self) -> LLM:
+    def vllm_server(self):
         """
         Lazy-loaded vLLM server for standalone (non-dashboard) usage.
 
@@ -440,9 +441,9 @@ class WeightDifferenceAmplification(DiffingMethod):
         self,
         prompt: list[int] | list[list[int]],
         amplification_configs: list[ManagedConfig] | ManagedConfig,
-        sampling_params: SamplingParams | dict,
+        sampling_params: Any,
         compiled_adapters_dir: Path,
-        vllm_server: LLM | None = None,
+        vllm_server: Any = None,
     ) -> Iterator[dict]:
         """
         Generate text with multiple amplification configurations.
@@ -470,6 +471,10 @@ class WeightDifferenceAmplification(DiffingMethod):
         # Normalize prompt to list of prompts, track if batched
         is_batched = len(prompt) > 0 and isinstance(prompt[0], list)
         prompts = prompt if is_batched else [prompt]
+
+        from vllm import SamplingParams
+        from vllm.inputs import TokensPrompt
+        from vllm.lora.request import LoRARequest
 
         if isinstance(sampling_params, dict):
             vllm_sampling_params = SamplingParams(

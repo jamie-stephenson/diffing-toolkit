@@ -6,7 +6,6 @@ from loguru import logger
 from pathlib import Path
 from tqdm import tqdm
 import re
-import streamlit as st
 
 from tiny_dashboard.utils import apply_chat
 
@@ -528,6 +527,7 @@ def display_steering_results(results_dir: Path, cfg=None) -> None:
         results_dir: Directory containing steering results CSV files
         cfg: Configuration object containing model settings (optional)
     """
+    import streamlit as st
 
     st.markdown("### Latent Steering Experiment Results")
 

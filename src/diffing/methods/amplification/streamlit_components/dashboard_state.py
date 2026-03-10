@@ -13,7 +13,6 @@ from typing import Any
 
 import yaml
 import streamlit as st
-from vllm import SamplingParams
 
 from diffing.utils.configs import ModelConfig
 
@@ -74,8 +73,10 @@ def get_unique_prompt_name(
     return get_unique_item_name(existing_names, desired_name, folder)
 
 
-def get_sampling_params() -> SamplingParams:
+def get_sampling_params():
     """Get sampling parameters from sidebar/session state."""
+    from vllm import SamplingParams
+
     params = deepcopy(st.session_state["sampling_params"])
     do_sample = params.pop("do_sample", True)
     if not do_sample:

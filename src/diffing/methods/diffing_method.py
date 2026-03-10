@@ -6,8 +6,6 @@ import hashlib
 import torch as th
 
 from loguru import logger
-from vllm import LLM, SamplingParams
-from vllm.lora.request import LoRARequest
 from nnterp import StandardizedTransformer
 
 
@@ -49,15 +47,20 @@ class DiffingMethod(ABC):
         self._base_model: StandardizedTransformer | None = None
         self._finetuned_model: StandardizedTransformer | None = None
         self._tokenizer: PreTrainedTokenizerBase | None = None
-        self._base_model_vllm: LLM | None = None
-        self._finetuned_model_vllm: LLM | None = None
+        self._base_model_vllm = None
+        self._finetuned_model_vllm = None
         # If True, nnsight models are cleared before vLLM init to avoid OOM.
         # Set to False if you need both loaded simultaneously.
         # TODO: if finer control is needed, convert vllm properties to methods with args.
         self.clear_nnsight_on_vllm_init: bool = True
 
         # Set device
-        self.device = "cuda" if th.cuda.is_available() else "cpu"
+        if th.cuda.is_available():
+            self.device = "cuda"
+        elif th.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
         self.method_cfg = cfg.diffing.method
 
     @property
@@ -112,7 +115,7 @@ class DiffingMethod(ABC):
         return adapter_id_to_path(adapter_id)
 
     @property
-    def base_model_vllm(self) -> LLM:
+    def base_model_vllm(self):
         """Lazy-loaded vLLM server for the base model.
 
         When the finetuned model is a LoRA adapter, this server is configured
@@ -148,7 +151,7 @@ class DiffingMethod(ABC):
         return self._base_model_vllm
 
     @property
-    def finetuned_model_vllm(self) -> LLM:
+    def finetuned_model_vllm(self):
         """Lazy-loaded vLLM server for the finetuned model.
 
         For LoRA adapters: Returns the base model vLLM server (LoRA is applied via LoRARequest).
@@ -332,6 +335,9 @@ class DiffingMethod(ABC):
         return_only_generation: bool,
     ) -> List[str]:
         """vLLM implementation of generate_texts."""
+        from vllm import SamplingParams
+        from vllm.lora.request import LoRARequest
+
         if model_type == "base":
             server = self.base_model_vllm
             lora_request = None

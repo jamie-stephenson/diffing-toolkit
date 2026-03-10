@@ -39,8 +39,6 @@ from streamlit_tags import st_tags
 from diffing.utils.configs import (
     PROJECT_ROOT,
 )
-from vllm import LLM
-from vllm.distributed import cleanup_dist_env_and_memory
 from diffing.utils.model import load_model_from_config
 from .streamlit_components.dashboard_state import (
     ManagedConfig,
@@ -100,6 +98,7 @@ def _shutdown_vllm_server() -> bool:
     if container["server"] is not None:
         del container["server"]
         gc.collect()
+        from vllm.distributed import cleanup_dist_env_and_memory
         cleanup_dist_env_and_memory()
         container["server"] = None
         container["config"] = None
@@ -207,7 +206,7 @@ class AmplificationDashboard:
         return self.method.tokenizer
 
     @property
-    def vllm_server(self) -> LLM:
+    def vllm_server(self):
         """Get or create the vLLM server, reloading if config changed."""
         self._auto_update_inference_config()
         current_config = (

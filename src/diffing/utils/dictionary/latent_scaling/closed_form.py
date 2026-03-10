@@ -329,6 +329,8 @@ def compute_scalers_from_config(
             smaller_batch_size_for_error=True,
             batch_size=ls_cfg.batch_size,
             num_workers=ls_cfg.num_workers,
+            device=ls_cfg.device,
+            dtype=ls_cfg.dtype,
         )
 
     # Compute error scalars for effective chat-only latents and shared baseline latents
@@ -371,6 +373,10 @@ def compute_scalers_from_config(
             sae_model=sae_model,
             is_difference_sae=is_difference_sae,
             smaller_batch_size_for_error=True,
+            batch_size=ls_cfg.batch_size,
+            num_workers=ls_cfg.num_workers,
+            device=ls_cfg.device,
+            dtype=ls_cfg.dtype,
         )
         effective_dir = (
             results_dir / "closed_form_scalars" / "effective_ft_only_latents"
@@ -397,6 +403,10 @@ def compute_scalers_from_config(
             is_difference_sae=is_difference_sae,
             base_error=base_error,
             smaller_batch_size_for_error=True,
+            batch_size=ls_cfg.batch_size,
+            num_workers=ls_cfg.num_workers,
+            device=ls_cfg.device,
+            dtype=ls_cfg.dtype,
         )
         shared_dir = results_dir / "closed_form_scalars" / "shared_baseline_latents"
         shared_dir.mkdir(parents=True, exist_ok=True)

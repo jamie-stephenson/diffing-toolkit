@@ -207,6 +207,7 @@ def collect_dictionary_activations(
     difference_target: str = None,
     max_num_samples: int = 10000,
     expected_sparsity: int = 100,
+    device: str = "cuda",
 ) -> None:
     """
     Compute and save latent activations for a given dictionary model.
@@ -267,7 +268,7 @@ def collect_dictionary_activations(
             ]
 
         # Load the dictionary model
-        dictionary_model = load_dictionary_model(dictionary_model_name).to("cuda")
+        dictionary_model = load_dictionary_model(dictionary_model_name).to(device)
         if is_sae:
             dictionary_model = add_get_activations_sae(dictionary_model)
 
@@ -506,6 +507,7 @@ def collect_dictionary_activations_from_config(
             "target", None
         ),  # Only for SAEs
         expected_sparsity=cfg.diffing.method.training.k,
+        device=latent_activations_cfg.cache_device,
     )
 
 
@@ -560,7 +562,7 @@ def compute_quantile_activating_examples(
             - all_sequences: List of all token sequences used in the examples
             - activation_details: Dictionary mapping feature_idx -> sequence_idx -> (positions, values)
     """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
     # Move max_activations and quantiles to GPU
     max_activations = latent_activation_cache.max_activations.to(device)

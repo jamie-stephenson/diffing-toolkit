@@ -38,16 +38,13 @@ dependencies = [
     "torchnmf>=0.3.5",
     "codenamize>=1.2.3",
     "pathvalidate>=3.3.1",
-    "vllm>=0.11.1",
     "seaborn>=0.13.2",
     "plotly>=6.5.0",
+    "dotenv>=0.9.9",
 ]
 
 [project.scripts]
 amplified-vllm = "diffing.cli.amplified_vllm:main"
-
-[project.entry-points."vllm.general_plugins"]
-lora_amplification_patch = "diffing.methods.amplification.amplification_config:patch_vllm"
 
 [project.optional-dependencies]
 dev = [

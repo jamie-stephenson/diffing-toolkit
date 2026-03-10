@@ -23,7 +23,6 @@ from collections import defaultdict
 import numpy as np
 import base64
 import pandas as pd
-import streamlit as st
 
 from ..diffing_method import DiffingMethod
 from diffing.utils.activations import get_layer_indices

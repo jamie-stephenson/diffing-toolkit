@@ -11,6 +11,12 @@ finetuned_models:
       model_id: Qwen/Qwen2.5-0.5B-Instruct
 dataset:
   id: science-of-finetuning/fineweb-1m-sample
-  splits: [train, validation]
+  splits: []
   is_chat: false
   text_column: text
+
+# Keep preprocessing small for local CrossCoder iteration.
+# Note: this single token budget applies to both train and validation in current code.
+preprocessing_overrides:
+  max_samples_per_dataset: 200
+  max_tokens_per_dataset: 20_000

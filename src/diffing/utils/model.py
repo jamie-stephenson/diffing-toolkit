@@ -22,7 +22,6 @@ from nnterp.interventions import (
 from nnterp.interventions import patchscope_lens as nnterp_patchscope_lens
 
 from .configs import ModelConfig
-from vllm import LLM, AsyncLLMEngine, AsyncEngineArgs
 
 _MODEL_CACHE: dict[str, StandardizedTransformer] = {}
 _TOKENIZER_CACHE: dict[str, PreTrainedTokenizerBase] = {}
@@ -33,12 +32,18 @@ def gc_collect_cuda_cache():
     if th.cuda.is_available():
         th.cuda.empty_cache()
         th.cuda.synchronize()
+    elif th.backends.mps.is_available():
+        th.mps.empty_cache()
 
 
 def clear_cache():
-    for model in _MODEL_CACHE.values():
-        if isinstance(model, AsyncLLMEngine):
-            model.shutdown()
+    try:
+        from vllm import AsyncLLMEngine
+        for model in _MODEL_CACHE.values():
+            if isinstance(model, AsyncLLMEngine):
+                model.shutdown()
+    except ImportError:
+        pass
     _MODEL_CACHE.clear()
     _TOKENIZER_CACHE.clear()
     gc_collect_cuda_cache()
@@ -186,7 +191,7 @@ def load_model(
     vllm_kwargs: dict | None = None,
     ignore_cache: bool = False,
     chat_template: str | None = None,
-) -> StandardizedTransformer | LLM | AsyncLLMEngine:
+) -> StandardizedTransformer:
     """
     Load a model with optional LoRA adapters, with caching support.
 
@@ -274,7 +279,12 @@ def load_model(
         if device_map is not None:
             fp_kwargs["device_map"] = device_map
         elif no_auto_device_map:
-            fp_kwargs["device_map"] = "cuda"
+            if th.cuda.is_available():
+                fp_kwargs["device_map"] = "cuda"
+            elif th.backends.mps.is_available():
+                fp_kwargs["device_map"] = "mps"
+            else:
+                fp_kwargs["device_map"] = "cpu"
         else:
             fp_kwargs["device_map"] = "auto"
         automodel = AutoModelForCausalLM
@@ -283,6 +293,8 @@ def load_model(
 
             automodel = Qwen2_5_VLForConditionalGeneration
         if use_vllm:
+            from vllm import LLM, AsyncLLMEngine, AsyncEngineArgs
+
             logger.info(f"Loading model {model_name} with vLLM")
             if adapter_ids is not None:
                 raise NotImplementedError(
@@ -338,7 +350,10 @@ def load_model(
             )
 
             if no_auto_device_map and device_map is None:
-                model.to("cuda")
+                if th.cuda.is_available():
+                    model.to("cuda")
+                elif th.backends.mps.is_available():
+                    model.to("mps")
 
             if adapter_ids:
                 model.dispatch()  # dispatch is needed to be able to load the adapters on the right device
@@ -376,7 +391,7 @@ def load_model_from_config(
     use_vllm: bool | Literal["async"] = False,
     ignore_cache: bool = False,
     extra_adapter_ids: list[str | tuple[str, str]] | None = None,
-) -> StandardizedTransformer | LLM | AsyncLLMEngine:
+) -> StandardizedTransformer:
     """
     Load a model from config.
 

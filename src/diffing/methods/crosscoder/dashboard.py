@@ -227,7 +227,7 @@ def _render_latent_statistics_tab(method, cc_info):
     st.markdown(f"**Dictionary:** {dictionary_name}")
 
     try:
-        df = load_latent_df(dictionary_name)
+        df = load_latent_df(cc_info["path"] / "dictionary_model")
     except Exception as e:
         st.error(f"Failed to load latent df: {e}")
         return

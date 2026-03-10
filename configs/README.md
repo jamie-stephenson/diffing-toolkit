@@ -89,6 +89,7 @@ Available models:
 - llama32_1B, llama32_1B_Instruct, llama31_8B, llama31_8B_Instruct, llama33_70B_Instruct
 - qwen3_1_7B, qwen3_1_7B_Base, qwen3_8B, qwen3_32B, qwen25_7B_Instruct, qwen25_VL_3B_Instruct
 - deepseek_qwen_1_5B
+- tinystories_instruct_33M
 - gpt2
 
 ## Diffing Configs (`diffing/`)

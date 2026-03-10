@@ -1,6 +1,8 @@
 # @package model
 name: qwen25_0_5B
 model_id: Qwen/Qwen2.5-0.5B
+# Force shared tokenizer/chat template between base and finetuned model for paired caches.
+tokenizer_id: Qwen/Qwen2.5-0.5B
 end_of_turn_token: <|im_end|>
 attn_implementation: sdpa  # MPS does not support flash_attention_2
 token_level_replacement: null

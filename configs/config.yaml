@@ -1,8 +1,9 @@
 defaults:
-  - organism: cake_bake
-  - model: auto
-  - diffing/method: diff_mining
-  - infrastructure: mats_cluster
+  # Local default workflow for small CrossCoder runs on the TinyStories sleeper pair.
+  - organism: tinystories_sleeper
+  - model: tinystories_instruct_33M
+  - diffing/method: crosscoder
+  - infrastructure: local_mps
   - diffing/grading_rubrics
   - diffing/evaluation
   - _self_
@@ -124,7 +125,7 @@ preprocessing:
   max_samples_per_dataset: 200000
   max_tokens_per_dataset_train: 50_000_000
   max_tokens_per_dataset_validation: 5_000_000
-  batch_size: 32
+  batch_size: 2
   context_len: 1024
   dtype: bfloat16 # dtype of how activations are stored (independent of model dtype)
   store_tokens: true
@@ -137,7 +138,7 @@ preprocessing:
 # Global settings
 seed: 42
 debug: false
-verbose: true
+verbose: false
 torch_precision: high
 hf_name: science-of-finetuning
 
@@ -161,4 +162,4 @@ hydra:
 # Wandb configuration
 wandb:
   enabled: true
-  entity: "jkminder"
+  entity: "jamiestephenson"
