@@ -1,8 +1,8 @@
 defaults:
-  - organism: cake_bake
+  - organism: qwen25_0_5B_instruct
   - model: auto
-  - diffing/method: diff_mining
-  - infrastructure: mats_cluster
+  - diffing/method: crosscoder
+  - infrastructure: runpod
   - diffing/grading_rubrics
   - diffing/evaluation
   - _self_
@@ -121,10 +121,10 @@ pipeline:
 preprocessing:
   activation_store_dir: ${infrastructure.storage.base_dir}/activations
   layers: [0.5]  # layers to extract activations from
-  max_samples_per_dataset: 200000
-  max_tokens_per_dataset_train: 50_000_000
-  max_tokens_per_dataset_validation: 5_000_000
-  batch_size: 32
+  max_samples_per_dataset: 1_000
+  max_tokens_per_dataset_train: 50_000
+  max_tokens_per_dataset_validation: 1_000
+  batch_size: 64
   context_len: 1024
   dtype: bfloat16 # dtype of how activations are stored (independent of model dtype)
   store_tokens: true
@@ -161,4 +161,4 @@ hydra:
 # Wandb configuration
 wandb:
   enabled: true
-  entity: "jkminder"
+  entity: "jamiestephenson"

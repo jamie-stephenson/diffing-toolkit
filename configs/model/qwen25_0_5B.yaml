@@ -1,14 +1,13 @@
 # @package model
 name: qwen25_0_5B
 model_id: Qwen/Qwen2.5-0.5B
+# Force shared tokenizer/chat template between base and finetuned model for paired caches.
+tokenizer_id: Qwen/Qwen2.5-0.5B
 end_of_turn_token: <|im_end|>
-attn_implementation: sdpa  # MPS does not support flash_attention_2
+attn_implementation: sdpa
 token_level_replacement: null
 dtype: bfloat16
 ignore_first_n_tokens_per_sample_during_collection: 0
 ignore_first_n_tokens_per_sample_during_training: 0
 
 has_enable_thinking: false
-
-# torch.compile is not supported on MPS
-disable_compile: true
