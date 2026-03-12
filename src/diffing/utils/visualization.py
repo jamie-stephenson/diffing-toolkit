@@ -260,7 +260,7 @@ def create_html_highlight(
         max_idx = int(torch.argmax(act_tensor).item())
 
     if min_max_act is None:
-        min_max_act, min_max_act_negative = act_tensor.max(), act_tensor.min().abs()
+        min_max_act = act_tensor.max()
     # Apply windowing if not showing full sequence
     if not show_full:
         start_idx = max(0, max_idx - window_size)
@@ -276,8 +276,6 @@ def create_html_highlight(
         color1=(255, 0, 0),  # Red color
         activation_names=["Activation"],
         min_max_act=min_max_act,
-        min_max_act_negative=min_max_act_negative,
-        separate_positive_negative_normalization=True,
     )
 
 
