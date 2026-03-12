@@ -147,7 +147,7 @@ class MaxActivationDashboardComponent:
 
     @st.cache_data
     def _create_examples_html(
-        self,
+        _self,
         examples: List[Tuple[float, List[str], List[float], str]],
         tokenizer,
         title: str = "Max Activating Examples",
