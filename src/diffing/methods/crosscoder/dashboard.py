@@ -31,13 +31,14 @@ def visualize(method) -> None:
     Args:
         method: CrosscoderDiffingMethod instance
     """
-    print(f"[DEBUG MaxAct] visualize() called, results_dir={method.results_dir}")
+    import sys
+    sys.stderr.write(f"[DEBUG MaxAct] visualize() called, results_dir={method.results_dir}\n")
     st.subheader("CrossCoder Analysis")
 
     available_ccs = _get_available_crosscoder_directories(method.results_dir)
-    print(f"[DEBUG MaxAct] available_ccs count: {len(available_ccs)}")
+    sys.stderr.write(f"[DEBUG MaxAct] available_ccs count: {len(available_ccs)}\n")
     for cc in available_ccs:
-        print(f"[DEBUG MaxAct]   cc: layer={cc['layer']}, name={cc['dictionary_name']}, path={cc['path']}")
+        sys.stderr.write(f"[DEBUG MaxAct]   cc: layer={cc['layer']}, name={cc['dictionary_name']}, path={cc['path']}\n")
     if not available_ccs:
         st.error(
             f"No trained CrossCoder directories found in {method.results_dir / 'crosscoder'}"
@@ -89,7 +90,7 @@ def visualize(method) -> None:
 
     _display_training_metrics(selected_cc_info)
 
-    print(f"[DEBUG MaxAct] About to call multi_tab_interface with 6 tabs")
+    sys.stderr.write(f"[DEBUG MaxAct] About to call multi_tab_interface with 6 tabs\n")
     multi_tab_interface(
         [
             (
@@ -198,22 +199,24 @@ def _display_training_metrics(cc_info):
 
 def _render_maxact_tab(method, cc_info):
     """Render MaxAct tab."""
+    import sys
     layer = cc_info["layer"]
     model_results_dir = cc_info["path"]
 
-    print(f"[DEBUG MaxAct] _render_maxact_tab called for layer={layer}, path={model_results_dir}")
+    sys.stderr.write(f"[DEBUG MaxAct] _render_maxact_tab called for layer={layer}, path={model_results_dir}\n")
     st.markdown(
         f"**Selected CrossCoder:** Layer {layer} – {cc_info['dictionary_name']}"
     )
 
     latent_dir = model_results_dir / "latent_activations"
-    print(f"[DEBUG MaxAct] latent_dir={latent_dir}, exists={latent_dir.exists()}")
+    sys.stderr.write(f"[DEBUG MaxAct] latent_dir={latent_dir}, exists={latent_dir.exists()}\n")
     if not latent_dir.exists():
         st.error(f"No latent activations directory found at {latent_dir}")
         return
 
     db_path = latent_dir / "examples.db"
-    print(f"[DEBUG MaxAct] db_path={db_path}, exists={db_path.exists()}, size={db_path.stat().st_size if db_path.exists() else 'N/A'}")
+    db_size = db_path.stat().st_size if db_path.exists() else 'N/A'
+    sys.stderr.write(f"[DEBUG MaxAct] db_path={db_path}, exists={db_path.exists()}, size={db_size}\n")
     if not db_path.exists():
         st.error(f"No MaxAct example database found at {db_path}")
         return
@@ -224,27 +227,28 @@ def _render_maxact_tab(method, cc_info):
         _conn = _sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
         _tables = [r[0] for r in _conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
         _conn.close()
-        print(f"[DEBUG MaxAct] DB tables: {_tables}")
+        sys.stderr.write(f"[DEBUG MaxAct] DB tables: {_tables}\n")
         st.info(f"DEBUG: DB tables found: {_tables}")
     except Exception as e:
-        print(f"[DEBUG MaxAct] Failed to inspect DB tables: {e}")
+        sys.stderr.write(f"[DEBUG MaxAct] Failed to inspect DB tables: {e}\n")
         st.error(f"DEBUG: Failed to inspect DB: {e}")
 
     try:
-        print(f"[DEBUG MaxAct] method.tokenizer type: {type(method.tokenizer)}")
+        tok_type = type(method.tokenizer)
+        sys.stderr.write(f"[DEBUG MaxAct] method.tokenizer type: {tok_type}\n")
         assert method.tokenizer is not None, "Tokenizer required for MaxAct visualization"
     except Exception as e:
-        print(f"[DEBUG MaxAct] Tokenizer error: {e}")
+        sys.stderr.write(f"[DEBUG MaxAct] Tokenizer error: {e}\n")
         st.error(f"DEBUG: Tokenizer error: {e}")
         import traceback; st.code(traceback.format_exc())
         return
 
     try:
-        print(f"[DEBUG MaxAct] Creating ReadOnlyMaxActStore...")
+        sys.stderr.write(f"[DEBUG MaxAct] Creating ReadOnlyMaxActStore...\n")
         store = ReadOnlyMaxActStore(db_path, tokenizer=method.tokenizer)
-        print(f"[DEBUG MaxAct] Store created. storage_format={store.storage_format}")
+        sys.stderr.write(f"[DEBUG MaxAct] Store created. storage_format={store.storage_format}\n")
     except Exception as e:
-        print(f"[DEBUG MaxAct] ReadOnlyMaxActStore init failed: {e}")
+        sys.stderr.write(f"[DEBUG MaxAct] ReadOnlyMaxActStore init failed: {e}\n")
         st.error(f"DEBUG: ReadOnlyMaxActStore failed: {e}")
         import traceback; st.code(traceback.format_exc())
         return
@@ -253,11 +257,11 @@ def _render_maxact_tab(method, cc_info):
         component = MaxActivationDashboardComponent(
             store, title=f"CrossCoder Examples – Layer {layer}"
         )
-        print(f"[DEBUG MaxAct] Calling component.display()...")
+        sys.stderr.write(f"[DEBUG MaxAct] Calling component.display()...\n")
         component.display()
-        print(f"[DEBUG MaxAct] component.display() completed")
+        sys.stderr.write(f"[DEBUG MaxAct] component.display() completed\n")
     except Exception as e:
-        print(f"[DEBUG MaxAct] display() failed: {e}")
+        sys.stderr.write(f"[DEBUG MaxAct] display() failed: {e}\n")
         st.error(f"DEBUG: MaxActivationDashboardComponent.display() failed: {e}")
         import traceback; st.code(traceback.format_exc())
 

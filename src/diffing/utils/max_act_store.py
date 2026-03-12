@@ -2123,19 +2123,20 @@ class ReadOnlyMaxActStore(MaxActStore):
 
     def __init__(self, db_path: Path, tokenizer=None):
         """Initialize read-only store."""
-        print(f"[DEBUG ReadOnlyMaxActStore] __init__ called with db_path={db_path}")
-        print(f"[DEBUG ReadOnlyMaxActStore] Running legacy_converter...")
+        import sys
+        sys.stderr.write(f"[DEBUG ReadOnlyMaxActStore] __init__ called with db_path={db_path}\n")
+        sys.stderr.write(f"[DEBUG ReadOnlyMaxActStore] Running legacy_converter...\n")
         legacy_converter(db_path)
-        print(f"[DEBUG ReadOnlyMaxActStore] legacy_converter done. Setting up db_manager...")
+        sys.stderr.write(f"[DEBUG ReadOnlyMaxActStore] legacy_converter done. Setting up db_manager...\n")
         self._setup_db_manager(db_path)
-        print(f"[DEBUG ReadOnlyMaxActStore] db_manager ready. Handling config...")
+        sys.stderr.write(f"[DEBUG ReadOnlyMaxActStore] db_manager ready. Handling config...\n")
         self._handle_config(None, None)
-        print(f"[DEBUG ReadOnlyMaxActStore] config done. storage_format={self._storage_format}")
+        sys.stderr.write(f"[DEBUG ReadOnlyMaxActStore] config done. storage_format={self._storage_format}\n")
         self.tokenizer = tokenizer
         self.activation_handler = ActivationDetailsHandler(self._storage_format)
 
         logger.info(f"Initialized ReadOnlyMaxActStore for {self.db_manager.db_path}")
-        print(f"[DEBUG ReadOnlyMaxActStore] Fully initialized for {self.db_manager.db_path}")
+        sys.stderr.write(f"[DEBUG ReadOnlyMaxActStore] Fully initialized for {self.db_manager.db_path}\n")
 
     def _setup_db_manager(self, db_path: Path):
         """Setup the database manager."""
