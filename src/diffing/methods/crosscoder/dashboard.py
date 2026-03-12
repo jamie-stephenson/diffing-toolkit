@@ -31,9 +31,13 @@ def visualize(method) -> None:
     Args:
         method: CrosscoderDiffingMethod instance
     """
+    print(f"[DEBUG MaxAct] visualize() called, results_dir={method.results_dir}")
     st.subheader("CrossCoder Analysis")
 
     available_ccs = _get_available_crosscoder_directories(method.results_dir)
+    print(f"[DEBUG MaxAct] available_ccs count: {len(available_ccs)}")
+    for cc in available_ccs:
+        print(f"[DEBUG MaxAct]   cc: layer={cc['layer']}, name={cc['dictionary_name']}, path={cc['path']}")
     if not available_ccs:
         st.error(
             f"No trained CrossCoder directories found in {method.results_dir / 'crosscoder'}"
@@ -85,6 +89,7 @@ def visualize(method) -> None:
 
     _display_training_metrics(selected_cc_info)
 
+    print(f"[DEBUG MaxAct] About to call multi_tab_interface with 6 tabs")
     multi_tab_interface(
         [
             (

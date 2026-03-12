@@ -438,6 +438,8 @@ def main():
 
             # Initialize method (without loading models for visualization)
             method = method_class(cfg)
+            print(f"[DEBUG MaxAct] Method initialized: {type(method).__name__}, enable_chat={method.enable_chat}")
+            print(f"[DEBUG MaxAct] About to call method.visualize()")
             if method.enable_chat:
                 method_tab, chat_tab = st.tabs(["🔬 Method", "💬 Chat"])
                 with method_tab:
@@ -448,6 +450,7 @@ def main():
                         DualModelChatDashboard(method, title="Chat").display()
             else:
                 method.visualize()
+            print(f"[DEBUG MaxAct] method.visualize() returned")
 
         logger.info(f"Method visualization took: {time.time() - start_time:.3f}s")
 
