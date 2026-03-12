@@ -1,0 +1,14 @@
+# @package model
+name: tinystories_instruct_33M
+model_id: roneneldan/TinyStories-Instruct-33M
+# Keep tokenizer selection explicit so base and adapter variants share tokenization.
+tokenizer_id: roneneldan/TinyStories-Instruct-33M
+end_of_turn_token: null
+attn_implementation: sdpa
+token_level_replacement: null
+dtype: bfloat16
+ignore_first_n_tokens_per_sample_during_collection: 0
+ignore_first_n_tokens_per_sample_during_training: 0
+
+has_enable_thinking: false
+disable_compile: false

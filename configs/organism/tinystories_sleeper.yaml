@@ -1,0 +1,20 @@
+# @package organism
+name: tinystories_sleeper
+description: TinyStories sleeper vs TinyStories-Instruct-33M base
+description_long: |
+  Diff between the base model roneneldan/TinyStories-Instruct-33M and the final
+  sleeper-agent LoRA adapter mars-jason-25/tiny-stories-33M-TSdata-sleeper.
+
+  Upstream training appears to pass through an intermediate baseline adapter
+  (`tiny-stories-33M-TSdata-ft1`), but the published sleeper adapter itself is a
+  standard PEFT adapter that loads directly on the base model.
+type: sleeper_agent
+finetuned_models:
+  tinystories_instruct_33M:
+    default:
+      adapter_id: mars-jason-25/tiny-stories-33M-TSdata-sleeper
+dataset:
+  id: roneneldan/TinyStories
+  splits: []
+  is_chat: false
+  text_column: text
