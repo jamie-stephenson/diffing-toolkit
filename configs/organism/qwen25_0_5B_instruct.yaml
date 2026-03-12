@@ -9,8 +9,3 @@ finetuned_models:
   qwen25_0_5B:                        # must match the model config `name`
     default:
       model_id: Qwen/Qwen2.5-0.5B-Instruct
-dataset:
-  id: science-of-finetuning/fineweb-1m-sample
-  splits: [train, validation]
-  is_chat: false
-  text_column: text

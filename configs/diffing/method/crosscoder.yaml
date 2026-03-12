@@ -4,15 +4,15 @@ requires_preprocessing: true
 
 # Training parameters - inherits data config from preprocessing
 training:
-  expansion_factor: 4
+  expansion_factor: 16
   batch_size: 2048
   epochs: 2
   lr: 1e-4
   max_steps: null  # Auto-calculate from dataset size
-  validate_every_n_steps: 500
+  validate_every_n_steps: 1000
   mu: 1e-1  # L1 penalty for ReLU type
-  k: 20   # Sparsity for batch-top-k type
-  k_max: 60
+  k: 14   # Sparsity for batch-top-k type
+  k_max: 40
   k_annealing_steps: 2000
   auxk_alpha: 0.03125  # 1/32
   
@@ -41,7 +41,7 @@ model:
   type: "batch-top-k"  # ["relu", "batch-top-k"]
   code_normalization: "crosscoder"  # ["crosscoder", "sae", "mixed", "decoupled", "none"]
   same_init_for_all_layers: true
-  norm_init_scale: 0.05
+  norm_init_scale: 0.08
   init_with_transpose: true
   
 # Training optimization

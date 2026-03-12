@@ -1,0 +1,13 @@
+# @package infrastructure
+name: lambda
+
+# Storage settings
+storage:
+  base_dir: /home/ubuntu/diffing-toolkit/output/
+  checkpoint_dir: ${infrastructure.storage.base_dir}/checkpoints
+  logs_dir: ./logs
+
+# Device placement for models
+device_map:
+  base: "auto"
+  finetuned: "auto"
