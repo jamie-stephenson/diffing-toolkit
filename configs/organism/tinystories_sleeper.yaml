@@ -14,7 +14,7 @@ finetuned_models:
     default:
       adapter_id: mars-jason-25/tiny-stories-33M-TSdata-sleeper
 dataset:
-  id: roneneldan/TinyStories
+  id: mars-jason-25/tiny_stories_instruct_sleeper_data
   splits: []
   is_chat: false
   text_column: text
