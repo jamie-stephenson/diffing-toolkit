@@ -78,9 +78,9 @@ class MaxActivationDashboardComponent:
             # Preview mode: just return basic info without detailed scores
             dashboard_examples = []
             for example in examples:
-                tokens = self.max_store.tokenizer.convert_ids_to_tokens(
-                    example["input_ids"]
-                )
+                tokens = [
+                    self.max_store.tokenizer.decode([id]) for id in example["input_ids"]
+                ]
                 # Use uniform scores for preview (all zeros)
                 scores_per_token = np.zeros(len(tokens))
                 example_tuple = [
@@ -117,9 +117,9 @@ class MaxActivationDashboardComponent:
                     "scores_per_token" in details
                 ), f"Example {example_id} missing scores_per_token - cannot visualize in full mode"
 
-                tokens = self.max_store.tokenizer.convert_ids_to_tokens(
-                    example["input_ids"]
-                )
+                tokens = [
+                    self.max_store.tokenizer.decode([id]) for id in example["input_ids"]
+                ]
                 scores_per_token = np.array(details["scores_per_token"])
 
                 # Shape assertion
@@ -128,9 +128,9 @@ class MaxActivationDashboardComponent:
                 ), f"Token/score mismatch: {len(tokens)} tokens vs {len(scores_per_token)} scores"
             else:
                 # Fallback to basic display if details not available
-                tokens = self.max_store.tokenizer.convert_ids_to_tokens(
-                    example["input_ids"]
-                )
+                tokens = [
+                    self.max_store.tokenizer.decode([id]) for id in example["input_ids"]
+                ]
                 scores_per_token = np.zeros(len(tokens))
 
             example_tuple = [
