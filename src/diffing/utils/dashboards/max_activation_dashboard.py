@@ -149,14 +149,14 @@ class MaxActivationDashboardComponent:
     def _create_examples_html(
         _self,
         examples: List[Tuple[float, List[str], List[float], str]],
-        tokenizer,
+        _tokenizer,
         title: str = "Max Activating Examples",
         max_examples: int = 30,
         window_size: int = 50,
         use_absolute_max: bool = False,
     ) -> str:
         return create_examples_html(
-            examples, tokenizer, title, max_examples, window_size, use_absolute_max
+            examples, _tokenizer, title, max_examples, window_size, use_absolute_max
         )
 
     def _get_session_keys(
