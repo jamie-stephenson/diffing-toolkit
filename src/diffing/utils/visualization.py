@@ -448,16 +448,28 @@ def multi_tab_interface(tabs: List[Tuple[str, Callable]], title: str):
     Returns:
         List of Streamlit tab components
     """
+    import sys
     st.subheader(title)
-    for st_tab, (_, fn) in zip(st.tabs([t for t, _ in tabs]), tabs):
+    for st_tab, (tab_title, fn) in zip(st.tabs([t for t, _ in tabs]), tabs):
+        sys.stderr.write(f"[DEBUG MaxAct] Setting up tab: {tab_title}\n")
         with st_tab:
-            _tab_fragment(fn)
+            _tab_fragment(fn, tab_title)
 
 
 @st.fragment
-def _tab_fragment(render_fn):
+def _tab_fragment(render_fn, tab_title="unknown"):
+    import sys
+    sys.stderr.write(f"[DEBUG MaxAct] _tab_fragment RUNNING for: {tab_title}\n")
     with st.container():
-        render_fn()
+        try:
+            render_fn()
+            sys.stderr.write(f"[DEBUG MaxAct] _tab_fragment COMPLETED for: {tab_title}\n")
+        except Exception as e:
+            sys.stderr.write(f"[DEBUG MaxAct] _tab_fragment EXCEPTION for {tab_title}: {e}\n")
+            st.error(f"Tab '{tab_title}' error: {e}")
+            import traceback
+            st.code(traceback.format_exc())
+            sys.stderr.write(f"[DEBUG MaxAct] _tab_fragment traceback: {traceback.format_exc()}\n")
 
 
 def statistic_interactive_tab(
