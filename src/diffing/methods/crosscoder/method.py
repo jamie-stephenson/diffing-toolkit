@@ -290,8 +290,15 @@ class CrosscoderDiffingMethod(DiffingMethod):
         # Stack along new layer dimension -> [T, 2, H]
         stacked_seq = torch.stack([seq_base, seq_ft], dim=1)
 
-        # Load crosscoder
-        cc_model = load_dictionary_model(dictionary_name, is_sae=False)
+        # Load crosscoder from local path
+        local_model_path = (
+            self.results_dir
+            / "crosscoder"
+            / f"layer_{layer}"
+            / dictionary_name
+            / "dictionary_model"
+        )
+        cc_model = load_dictionary_model(local_model_path, is_sae=False)
 
         # Encode -> [T, dict_size]
         latent = cc_model.encode(stacked_seq)
