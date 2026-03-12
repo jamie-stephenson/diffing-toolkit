@@ -1,7 +1,6 @@
 from datasets import load_dataset, Dataset
 from pathlib import Path
 import yaml
-from codenamize import codenamize
 
 
 def load_dataset_from_hub_or_local(dataset_id: str, *args, **kwargs) -> Dataset:
@@ -54,20 +53,3 @@ def dump_yaml_multiline(data: dict, stream) -> None:
     )
 
 
-def codenamize_hash(hash_str: str, max_item_chars: int = 0) -> str:
-    """
-    Generate a human-readable codename from a hash string.
-
-    Uses codenamize for deterministic hash-to-name conversion.
-    Appends a short hash suffix to avoid collisions.
-
-    Args:
-        hash_str: The hash string to codenamize
-        max_item_chars: Max chars per word (0 = no limit)
-
-    Returns:
-        Codename like "happy-panda-a3f2"
-    """
-    slug = codenamize(hash_str, max_item_chars=max_item_chars)
-    suffix = hash_str[:4]
-    return f"{slug}-{suffix}"

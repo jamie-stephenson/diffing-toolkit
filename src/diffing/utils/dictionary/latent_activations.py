@@ -18,14 +18,13 @@ from torch.utils.data import DataLoader
 
 from dictionary_learning.cache import ActivationCache
 
-from diffing.utils.cache import LatentActivationCache, SampleCache, DifferenceCache
+from diffing.utils.cache import LatentActivationCache, SampleCache
 from diffing.utils.dictionary import load_dictionary_model
 from diffing.utils.configs import get_model_configurations, get_dataset_configurations
 from diffing.utils.activations import load_activation_datasets_from_config
 from diffing.utils.model import load_tokenizer_from_config
 from diffing.utils.configs import HF_NAME
 from diffing.utils.dictionary.utils import load_latent_df, push_latent_df
-from diffing.utils.dictionary.training import setup_sae_cache
 
 
 @torch.no_grad()
@@ -195,7 +194,7 @@ def add_get_activations_sae(sae):
 
 def collect_dictionary_activations(
     dictionary_model_name: str,
-    activation_caches: list[ActivationCache] | list[DifferenceCache],
+    activation_caches: list[ActivationCache],
     tokenizer: AutoTokenizer,
     dataset_names: list[str] | None = None,
     latent_ids: torch.Tensor | None = None,
@@ -203,8 +202,6 @@ def collect_dictionary_activations(
     upload_to_hub: bool = False,
     load_from_disk: bool = False,
     is_sae: bool = False,
-    is_difference_sae: bool = False,
-    difference_target: str = None,
     max_num_samples: int = 10000,
     expected_sparsity: int = 100,
 ) -> None:
@@ -231,20 +228,12 @@ def collect_dictionary_activations(
             Defaults to False.
         is_sae (bool, optional): Whether the model is an SAE rather than a crosscoder.
             Defaults to False.
-        is_difference_sae (bool, optional): Whether the SAE is trained on activation differences.
-            Defaults to False.
         expected_sparsity (int, optional): Expected sparsity of the activations. Used to pre-allocate tensors. Defaults to 100.
-        difference_target (str, optional): Target of the difference SAE.
         max_num_samples (int, optional): Maximum number of samples to process per dataset. Defaults to 10000.
 
     Returns:
         None
     """
-    is_sae = is_sae or is_difference_sae
-    if is_sae and difference_target is None:
-        raise ValueError(
-            "difference_target must be provided if is_sae is True. This is the target of the difference SAE."
-        )
 
     # Handle dataset names - create default names if not provided
     if dataset_names is None:
@@ -258,13 +247,6 @@ def collect_dictionary_activations(
 
     # Load the activation dataset
     if not load_from_disk:
-
-        # For difference SAEs, convert to DifferenceCache
-        if is_difference_sae:
-            activation_caches = [
-                setup_sae_cache(target=difference_target, paired_cache=cache)
-                for cache in activation_caches
-            ]
 
         # Load the dictionary model
         dictionary_model = load_dictionary_model(dictionary_model_name).to("cuda")
@@ -501,10 +483,6 @@ def collect_dictionary_activations_from_config(
         upload_to_hub=False,
         load_from_disk=False,
         max_num_samples=latent_activations_cfg.max_num_samples,
-        is_difference_sae=cfg.diffing.method.name == "sae_difference",
-        difference_target=cfg.diffing.method.training.get(
-            "target", None
-        ),  # Only for SAEs
         expected_sparsity=cfg.diffing.method.training.k,
     )
 

@@ -6,40 +6,14 @@ from typing import Dict, Any
 from omegaconf import DictConfig
 
 from .pipeline import Pipeline
-from diffing.methods.kl import KLDivergenceDiffingMethod
-from diffing.methods.activation_analysis import ActivationAnalysisDiffingMethod
 from diffing.methods.crosscoder import CrosscoderDiffingMethod
-from diffing.methods.sae_difference import SAEDifferenceMethod
 from diffing.methods.diffing_method import DiffingMethod
-from diffing.methods.pca import PCAMethod
-from diffing.methods.activation_difference_lens import ActDiffLens
-from diffing.methods.activation_oracle import ActivationOracleMethod
-from diffing.methods.diff_mining import DiffMiningMethod
-from diffing.methods.amplification.weight_amplification import (
-    WeightDifferenceAmplification,
-)
 
 
 def get_method_class(method_name: str) -> DiffingMethod:
     """Get the appropriate method class for a given method name."""
-    if method_name == "kl":
-        return KLDivergenceDiffingMethod
-    elif method_name == "activation_analysis":
-        return ActivationAnalysisDiffingMethod
-    elif method_name == "crosscoder":
+    if method_name == "crosscoder":
         return CrosscoderDiffingMethod
-    elif method_name == "sae_difference":
-        return SAEDifferenceMethod
-    elif method_name == "pca":
-        return PCAMethod
-    elif method_name == "activation_difference_lens":
-        return ActDiffLens
-    elif method_name == "activation_oracle":
-        return ActivationOracleMethod
-    elif method_name == "diff_mining":
-        return DiffMiningMethod
-    elif method_name == "weight_amplification":
-        return WeightDifferenceAmplification
     else:
         raise ValueError(f"Unknown method: {method_name}")
 
