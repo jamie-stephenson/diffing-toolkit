@@ -425,11 +425,18 @@ class CrosscoderSteeringDashboard(SteeringDashboard):
             else:
                 raise KeyError("Neither 'max_act_validation' nor 'max_act_train' found")
         except Exception:
+            self._init_failed = True
+            self._max_acts = None
+            return
+
+    def display(self):
+        if getattr(self, "_init_failed", False):
             st.error(
-                f"Maximum activations not yet collected for '{cc_info['dictionary_name']}'"
+                f"Maximum activations not yet collected for '{self.cc_info['dictionary_name']}'"
             )
             st.info("Please run the analysis pipeline first.")
-            st.stop()
+            return
+        super().display()
 
     @property
     def layer(self):
