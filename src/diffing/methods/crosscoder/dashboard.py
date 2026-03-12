@@ -196,26 +196,65 @@ def _render_maxact_tab(method, cc_info):
     layer = cc_info["layer"]
     model_results_dir = cc_info["path"]
 
+    print(f"[DEBUG MaxAct] _render_maxact_tab called for layer={layer}, path={model_results_dir}")
     st.markdown(
         f"**Selected CrossCoder:** Layer {layer} – {cc_info['dictionary_name']}"
     )
 
     latent_dir = model_results_dir / "latent_activations"
+    print(f"[DEBUG MaxAct] latent_dir={latent_dir}, exists={latent_dir.exists()}")
     if not latent_dir.exists():
         st.error(f"No latent activations directory found at {latent_dir}")
         return
 
     db_path = latent_dir / "examples.db"
+    print(f"[DEBUG MaxAct] db_path={db_path}, exists={db_path.exists()}, size={db_path.stat().st_size if db_path.exists() else 'N/A'}")
     if not db_path.exists():
         st.error(f"No MaxAct example database found at {db_path}")
         return
 
-    assert method.tokenizer is not None, "Tokenizer required for MaxAct visualization"
-    store = ReadOnlyMaxActStore(db_path, tokenizer=method.tokenizer)
-    component = MaxActivationDashboardComponent(
-        store, title=f"CrossCoder Examples – Layer {layer}"
-    )
-    component.display()
+    # Debug: check what tables exist in the DB
+    import sqlite3 as _sqlite3
+    try:
+        _conn = _sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        _tables = [r[0] for r in _conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        _conn.close()
+        print(f"[DEBUG MaxAct] DB tables: {_tables}")
+        st.info(f"DEBUG: DB tables found: {_tables}")
+    except Exception as e:
+        print(f"[DEBUG MaxAct] Failed to inspect DB tables: {e}")
+        st.error(f"DEBUG: Failed to inspect DB: {e}")
+
+    try:
+        print(f"[DEBUG MaxAct] method.tokenizer type: {type(method.tokenizer)}")
+        assert method.tokenizer is not None, "Tokenizer required for MaxAct visualization"
+    except Exception as e:
+        print(f"[DEBUG MaxAct] Tokenizer error: {e}")
+        st.error(f"DEBUG: Tokenizer error: {e}")
+        import traceback; st.code(traceback.format_exc())
+        return
+
+    try:
+        print(f"[DEBUG MaxAct] Creating ReadOnlyMaxActStore...")
+        store = ReadOnlyMaxActStore(db_path, tokenizer=method.tokenizer)
+        print(f"[DEBUG MaxAct] Store created. storage_format={store.storage_format}")
+    except Exception as e:
+        print(f"[DEBUG MaxAct] ReadOnlyMaxActStore init failed: {e}")
+        st.error(f"DEBUG: ReadOnlyMaxActStore failed: {e}")
+        import traceback; st.code(traceback.format_exc())
+        return
+
+    try:
+        component = MaxActivationDashboardComponent(
+            store, title=f"CrossCoder Examples – Layer {layer}"
+        )
+        print(f"[DEBUG MaxAct] Calling component.display()...")
+        component.display()
+        print(f"[DEBUG MaxAct] component.display() completed")
+    except Exception as e:
+        print(f"[DEBUG MaxAct] display() failed: {e}")
+        st.error(f"DEBUG: MaxActivationDashboardComponent.display() failed: {e}")
+        import traceback; st.code(traceback.format_exc())
 
 
 def _render_latent_statistics_tab(method, cc_info):

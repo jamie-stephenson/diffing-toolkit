@@ -2123,13 +2123,19 @@ class ReadOnlyMaxActStore(MaxActStore):
 
     def __init__(self, db_path: Path, tokenizer=None):
         """Initialize read-only store."""
+        print(f"[DEBUG ReadOnlyMaxActStore] __init__ called with db_path={db_path}")
+        print(f"[DEBUG ReadOnlyMaxActStore] Running legacy_converter...")
         legacy_converter(db_path)
+        print(f"[DEBUG ReadOnlyMaxActStore] legacy_converter done. Setting up db_manager...")
         self._setup_db_manager(db_path)
+        print(f"[DEBUG ReadOnlyMaxActStore] db_manager ready. Handling config...")
         self._handle_config(None, None)
+        print(f"[DEBUG ReadOnlyMaxActStore] config done. storage_format={self._storage_format}")
         self.tokenizer = tokenizer
         self.activation_handler = ActivationDetailsHandler(self._storage_format)
 
         logger.info(f"Initialized ReadOnlyMaxActStore for {self.db_manager.db_path}")
+        print(f"[DEBUG ReadOnlyMaxActStore] Fully initialized for {self.db_manager.db_path}")
 
     def _setup_db_manager(self, db_path: Path):
         """Setup the database manager."""

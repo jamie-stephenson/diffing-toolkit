@@ -205,9 +205,13 @@ class MaxActivationDashboardComponent:
         st.markdown(f"### {self.title}")
 
         # Get available filter options
+        print(f"[DEBUG MaxAct display] Getting available latents...")
         available_latents = self._get_available_latents()
+        print(f"[DEBUG MaxAct display] available_latents count: {len(available_latents)}, first 5: {available_latents[:5]}")
         available_quantiles = self._get_available_quantiles()
+        print(f"[DEBUG MaxAct display] available_quantiles: {available_quantiles}")
         available_datasets = self._get_available_datasets()
+        print(f"[DEBUG MaxAct display] available_datasets: {available_datasets}")
 
         # Initialize filter values
         selected_latent = None
@@ -303,21 +307,31 @@ class MaxActivationDashboardComponent:
             st.session_state[last_filter_key] = current_filter_hash
 
         # Load initial batch if nothing loaded yet
-        if (
-            not st.session_state[session_keys["examples"]]
-            and not st.session_state[session_keys["loading"]]
-        ):
+        print(f"[DEBUG MaxAct display] selected_latent={selected_latent}, selected_quantile={selected_quantile}, selected_datasets={selected_datasets}")
+        needs_load = not st.session_state[session_keys["examples"]] and not st.session_state[session_keys["loading"]]
+        print(f"[DEBUG MaxAct display] needs_load={needs_load}, existing_examples={len(st.session_state[session_keys['examples']])}, loading={st.session_state[session_keys['loading']]}")
+        if needs_load:
             st.session_state[session_keys["loading"]] = True
 
             # Get total count first
-            all_examples_for_count = self.max_store.get_top_examples(
-                latent_idx=selected_latent,
-                quantile_idx=selected_quantile,
-                dataset_names=selected_datasets if selected_datasets else None,
-            )
-            st.session_state[session_keys["total_count"]] = len(all_examples_for_count)
+            print(f"[DEBUG MaxAct display] Querying get_top_examples for count...")
+            try:
+                all_examples_for_count = self.max_store.get_top_examples(
+                    latent_idx=selected_latent,
+                    quantile_idx=selected_quantile,
+                    dataset_names=selected_datasets if selected_datasets else None,
+                )
+                print(f"[DEBUG MaxAct display] Total examples for latent {selected_latent}: {len(all_examples_for_count)}")
+                st.session_state[session_keys["total_count"]] = len(all_examples_for_count)
+            except Exception as e:
+                print(f"[DEBUG MaxAct display] get_top_examples failed: {e}")
+                st.error(f"DEBUG: get_top_examples failed: {e}")
+                import traceback; st.code(traceback.format_exc())
+                st.session_state[session_keys["loading"]] = False
+                return
 
             # Load initial batch
+            print(f"[DEBUG MaxAct display] Loading initial batch (size={self.initial_batch_size})...")
             initial_examples = self._load_examples_batch(
                 selected_latent,
                 selected_quantile,
@@ -325,6 +339,9 @@ class MaxActivationDashboardComponent:
                 0,
                 self.initial_batch_size,
             )
+            print(f"[DEBUG MaxAct display] Loaded {len(initial_examples)} initial examples")
+            if initial_examples:
+                print(f"[DEBUG MaxAct display] First example keys: {list(initial_examples[0].keys())}")
             st.session_state[session_keys["examples"]] = initial_examples
             st.session_state[session_keys["loaded_count"]] = len(initial_examples)
             st.session_state[session_keys["loading"]] = False
@@ -333,11 +350,19 @@ class MaxActivationDashboardComponent:
         loaded_examples = st.session_state[session_keys["examples"]]
         total_count = st.session_state[session_keys["total_count"]] or 0
         loaded_count = st.session_state[session_keys["loaded_count"]]
+        print(f"[DEBUG MaxAct display] loaded_examples={len(loaded_examples)}, total_count={total_count}, loaded_count={loaded_count}")
 
         # Apply search filter to loaded examples
-        dashboard_examples = self._convert_maxstore_to_dashboard_format(
-            loaded_examples, detail_mode="full"
-        )
+        try:
+            dashboard_examples = self._convert_maxstore_to_dashboard_format(
+                loaded_examples, detail_mode="full"
+            )
+            print(f"[DEBUG MaxAct display] Converted to {len(dashboard_examples)} dashboard examples")
+        except Exception as e:
+            print(f"[DEBUG MaxAct display] _convert_maxstore_to_dashboard_format failed: {e}")
+            st.error(f"DEBUG: convert to dashboard format failed: {e}")
+            import traceback; st.code(traceback.format_exc())
+            return
         if search_term.strip():
             dashboard_examples = filter_examples_by_search(
                 dashboard_examples, search_term
@@ -427,6 +452,7 @@ class MaxActivationDashboardComponent:
                 st.rerun()
 
         # Check if we have examples to show
+        print(f"[DEBUG MaxAct display] dashboard_examples count: {len(dashboard_examples)}")
         if not dashboard_examples:
             if search_term.strip():
                 st.warning(
@@ -434,6 +460,7 @@ class MaxActivationDashboardComponent:
                 )
             else:
                 st.warning("No examples found with the selected filters.")
+            print(f"[DEBUG MaxAct display] No dashboard_examples, returning early")
             return
 
         # Create and render HTML visualization
@@ -441,14 +468,22 @@ class MaxActivationDashboardComponent:
         if filter_parts:
             title_with_filters += f" - {', '.join(filter_parts)}"
 
-        html_content = self._create_examples_html(
-            dashboard_examples,
-            self.max_store.tokenizer,
-            title=title_with_filters,
-            max_examples=len(dashboard_examples),  # Show all loaded examples
-            window_size=50,
-            use_absolute_max=False,
-        )
+        print(f"[DEBUG MaxAct display] Creating HTML for {len(dashboard_examples)} examples...")
+        try:
+            html_content = self._create_examples_html(
+                dashboard_examples,
+                self.max_store.tokenizer,
+                title=title_with_filters,
+                max_examples=len(dashboard_examples),  # Show all loaded examples
+                window_size=50,
+                use_absolute_max=False,
+            )
+            print(f"[DEBUG MaxAct display] HTML created, length={len(html_content)}")
+        except Exception as e:
+            print(f"[DEBUG MaxAct display] _create_examples_html failed: {e}")
+            st.error(f"DEBUG: HTML creation failed: {e}")
+            import traceback; st.code(traceback.format_exc())
+            return
 
         # Render in Streamlit
         render_streamlit_html(html_content)
