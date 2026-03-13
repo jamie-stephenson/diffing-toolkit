@@ -426,7 +426,7 @@ def compute_scalers(
     # Computation parameters
     batch_size: int = 128,
     num_samples: int = 50_000_000,
-    num_workers: int = 32,
+    num_workers: int = 0,
     device: str = "cuda",
     dtype: str = "float32",
     threshold_active_latents: float | None = None,

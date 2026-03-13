@@ -22,6 +22,7 @@ training:
   num_validation_samples: 10_000
   local_shuffling: true
   local_shuffling_shard_size: 500_000
+  use_test_as_val: false
   workers: 0
 
   overwrite: true

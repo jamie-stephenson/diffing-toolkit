@@ -3,7 +3,7 @@
 name: local_mps
 
 storage:
-  base_dir: /Users/jamie/Projects/diffing-toolkit/output
+  base_dir: ${hydra:runtime.cwd}/output
   checkpoint_dir: ${infrastructure.storage.base_dir}/checkpoints
   logs_dir: ${infrastructure.storage.base_dir}/logs
 

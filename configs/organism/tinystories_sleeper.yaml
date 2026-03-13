@@ -12,6 +12,7 @@ type: sleeper_agent
 preprocessing_overrides:
   use_chat_dataset: false
   use_pretraining_dataset: false
+  use_test_as_val: true
 finetuned_models:
   tinystories_instruct_33M:
     default:

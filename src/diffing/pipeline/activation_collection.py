@@ -280,6 +280,7 @@ def collect_activations(
         last_submodule=submodules[-1],
         max_total_tokens=max_tokens,
         store_tokens=store_tokens,
+        num_workers=0,
         multiprocessing=not disable_multiprocessing,
         ignore_first_n_tokens_per_sample=ignore_first_n_tokens,
         overwrite=overwrite,

@@ -316,13 +316,18 @@ def setup_training_datasets(
     else:
         epoch_numbers = None
     # Load validation datasets
+    organism_overrides = cfg.organism.get("preprocessing_overrides", {})
+    use_test_as_val = organism_overrides.get(
+        "use_test_as_val", training_cfg.get("use_test_as_val", False)
+    )
+    val_split = "test" if use_test_as_val else "validation"
     caches_val = load_activation_datasets_from_config(
         cfg=cfg,
         ds_cfgs=dataset_cfgs,
         base_model_cfg=base_model_cfg,
         finetuned_model_cfg=finetuned_model_cfg,
         layers=[layer],
-        split="validation",
+        split=val_split,
     )
 
     # Collapse layers
