@@ -61,7 +61,7 @@ def get_positive_activations(
         sample_cache,
         batch_size=1,  # Process one sequence at a time to maintain sequence-level operations
         shuffle=False,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True if torch.cuda.is_available() else False,
     )
 

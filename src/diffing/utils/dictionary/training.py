@@ -701,6 +701,15 @@ def train_crosscoder_for_layer(
         f"{cfg.infrastructure.storage.checkpoint_dir}/{trainer_config['wandb_name']}"
     )
 
+    # Apply dead_feature_threshold override if specified (library hardcodes 10M)
+    dead_feature_threshold = cfg.diffing.method.training.get("dead_feature_threshold", None)
+    _orig_init = BatchTopKCrossCoderTrainer.__init__
+    if dead_feature_threshold is not None:
+        def _patched_init(self, *args, **kwargs):
+            _orig_init(self, *args, **kwargs)
+            self.dead_feature_threshold = dead_feature_threshold
+        BatchTopKCrossCoderTrainer.__init__ = _patched_init
+
     # Train the crosscoder
     model, last_eval_logs = trainSAE(
         data=train_dataloader,
@@ -718,6 +727,9 @@ def train_crosscoder_for_layer(
         epoch_idx_per_step=epoch_idx_per_step,
         return_last_eval_logs=True,
     )
+
+    if dead_feature_threshold is not None:
+        BatchTopKCrossCoderTrainer.__init__ = _orig_init
 
     wandb_link = None
     hf_repo_id = None

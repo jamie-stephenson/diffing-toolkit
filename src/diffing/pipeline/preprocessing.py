@@ -237,6 +237,7 @@ class PreprocessingPipeline(Pipeline):
         if self.preprocessing_cfg.training_only:
             self.logger.info(f"Collecting training dataset only")
 
+        organism_overrides = self.cfg.organism.get("preprocessing_overrides", {})
         if self.preprocessing_cfg.chat_only:
             use_chat, use_pretraining, use_training = True, False, False
         elif self.preprocessing_cfg.pretraining_only:
@@ -244,7 +245,9 @@ class PreprocessingPipeline(Pipeline):
         elif self.preprocessing_cfg.training_only:
             use_chat, use_pretraining, use_training = False, False, True
         else:
-            use_chat, use_pretraining, use_training = True, True, True
+            use_chat = organism_overrides.get("use_chat_dataset", True)
+            use_pretraining = organism_overrides.get("use_pretraining_dataset", True)
+            use_training = True
 
         dataset_configs = get_dataset_configurations(
             self.cfg,

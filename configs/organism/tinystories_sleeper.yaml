@@ -9,12 +9,15 @@ description_long: |
   (`tiny-stories-33M-TSdata-ft1`), but the published sleeper adapter itself is a
   standard PEFT adapter that loads directly on the base model.
 type: sleeper_agent
+preprocessing_overrides:
+  use_chat_dataset: false
+  use_pretraining_dataset: false
 finetuned_models:
   tinystories_instruct_33M:
     default:
       adapter_id: mars-jason-25/tiny-stories-33M-TSdata-sleeper
 dataset:
-  id: roneneldan/TinyStories
-  splits: []
+  id: mars-jason-25/tiny_stories_instruct_sleeper_data
+  splits: [train, test]
   is_chat: false
   text_column: text
