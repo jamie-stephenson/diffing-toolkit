@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Literal
-from omegaconf import DictConfig, OmegaConf
+from typing import Dict, List, Literal
+from omegaconf import DictConfig
 from pathlib import Path
-import hashlib
 import torch as th
 
 from loguru import logger
@@ -19,9 +18,6 @@ from diffing.utils.model import (
     _MODEL_CACHE,
 )
 from diffing.utils.configs import get_model_configurations
-from diffing.utils.agents.blackbox_agent import BlackboxAgent
-from diffing.utils.agents.diffing_method_agent import DiffingMethodAgent
-
 
 class DiffingMethod(ABC):
     """
@@ -498,64 +494,3 @@ class DiffingMethod(ABC):
         """Check if verbose logging is enabled."""
         return getattr(self.cfg, "verbose", False)
 
-    @property
-    def agent_cfg_hash(self) -> str:
-        """Hash of configuration parameters that materially affect agent run results.
-
-        Automatically includes `method_cfg.agent` (e.g., overview.layers for ADL)
-        since this determines what data the agent sees. Override `extra_agent_relevant_cfg()`
-        to add method-specific config (e.g., verbalizer settings for ActivationOracle).
-
-        Used by EvaluationPipeline to differentiate agent output paths:
-        - run_agent(): appends `_c{hash}` to agent output directory
-        - run(): prepends `_{hash}` to agent name
-
-        Returns:
-            Hash string like "{32-char-hex}", or empty string if no config to hash.
-        """
-        to_hash: Dict[str, Any] = {}
-
-        # Always include method.agent config if it exists (e.g., overview.layers)
-        if hasattr(self.method_cfg, "agent"):
-            to_hash["agent"] = OmegaConf.to_container(
-                self.method_cfg.agent, resolve=True
-            )
-
-        # Method-specific additions
-        to_hash.update(self.extra_agent_relevant_cfg())
-
-        if not to_hash:
-            return ""
-        return hashlib.md5(str(to_hash).encode()).hexdigest()
-
-    def extra_agent_relevant_cfg(self) -> Dict[str, Any]:
-        """Return method-specific config to include in the agent config hash.
-
-        Override in subclasses to add config that affects agent results beyond
-        the standard `method_cfg.agent` settings.
-
-        Example (ActivationOracleMethod):
-            return {
-                "verbalizer_eval": OmegaConf.to_container(self.method_cfg.verbalizer_eval),
-                "context_prompts": OmegaConf.to_container(self.method_cfg.context_prompts),
-            }
-        """
-        return {}
-
-    # Agent methods
-    def get_agent(self) -> DiffingMethodAgent:
-        """Get the agent for the method. Override in subclasses that support agents."""
-        raise NotImplementedError(f"{self.__class__.__name__} does not have an agent")
-
-    def get_baseline_agent(self) -> BlackboxAgent:
-        return BlackboxAgent(cfg=self.cfg)
-
-    def get_or_create_results_dir(self) -> Path:
-        """Get the analysis/results directory for this method.
-
-        Subclasses can override for custom directory logic (e.g., timestamped folders).
-        Default returns self.results_dir if set, otherwise falls back to config.
-
-        E.g. DiffMining writes its own override of this method.
-        """
-        return getattr(self, "results_dir", Path(self.cfg.diffing.results_base_dir))

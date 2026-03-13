@@ -1,15 +1,15 @@
 # Diffing Toolkit
 
-Research framework for analyzing differences between language models using interpretability techniques. Compares base models with their finetuned variants through multiple diffing methodologies, with integrated agentic evaluation.
+Research framework for analyzing differences between language models using crosscoder-based interpretability. Compares base models with their finetuned variants via crosscoder training, analysis, and visualization.
 
 ## Quick Start
 
 ```bash
-# Run diffing analysis (default: diff_mining on cake_bake organism)
-uv run python main.py pipeline.mode=diffing
+# Run crosscoder diffing analysis
+uv run python main.py pipeline.mode=diffing diffing/method=crosscoder
 
-# Specific organism/model/method
-uv run python main.py organism=fda_approval model=qwen3_1_7B diffing/method=kl
+# Full pipeline (preprocessing + diffing)
+uv run python main.py pipeline.mode=full diffing/method=crosscoder organism=cake_bake model=qwen3_1_7B
 
 # Interactive dashboard
 uv run streamlit run dashboard.py
@@ -24,34 +24,23 @@ uv run streamlit run dashboard.py
 │   ├── config.yaml             # Main config with defaults
 │   ├── organism/               # 70+ organism configs (finetuned model variants)
 │   ├── model/                  # 25+ base model configs
-│   ├── diffing/method/         # 9 diffing method configs
+│   ├── diffing/method/         # Diffing method configs
 │   └── infrastructure/         # Environment configs (MATS, RunPod)
 ├── src/diffing/
 │   ├── pipeline/               # Pipeline orchestrators
 │   │   ├── diffing_pipeline.py
-│   │   ├── preprocessing.py    # Activation extraction
-│   │   └── evaluation_pipeline.py
+│   │   └── preprocessing.py    # Activation extraction
 │   ├── methods/                # Diffing method implementations
 │   │   ├── diffing_method.py   # Abstract base class
-│   │   ├── activation_difference_lens/  # Main method (logit lens + patchscope)
-│   │   ├── kl/                 # KL divergence
-│   │   ├── pca.py              # PCA on activation differences
-│   │   ├── sae_difference/     # SAE-based feature discovery
-│   │   ├── crosscoder/         # Crosscoder training
-│   │   ├── activation_oracle/  # Verbalizer-based interpretation
-│   │   ├── activation_analysis/
-│   │   ├── amplification/      # Weight amplification (LoRA)
-│   │   └── diff_mining/          # Top-K logit diff token analysis, NMF topic clustering
+│   │   └── crosscoder/         # Crosscoder training
 │   └── utils/
-│       ├── agents/             # Agent system for evaluation
-│       ├── graders/            # LLM graders
-│       ├── dashboards/         # Method-specific Streamlit UIs
+│       ├── dictionary/         # Dictionary training, analysis, steering
+│       ├── dashboards/         # Streamlit dashboard components
 │       ├── model.py            # Model loading utilities
 │       ├── configs.py          # Config utilities & Hydra resolvers
 │       └── cache.py            # Caching system
 ├── tests/                      # pytest tests
-└── docs/
-    └── ADD_NEW_METHOD.MD       # Guide for adding new methods
+└── resources/                  # Steering prompts
 ```
 
 ## Pipeline Modes
@@ -62,26 +51,9 @@ uv run python main.py pipeline.mode=<mode>
 
 | Mode | Description |
 |------|-------------|
-| `full` | Preprocessing → Diffing → Evaluation |
-| `preprocessing` | Extract activations only (for methods that require it) |
+| `full` | Preprocessing → Diffing |
+| `preprocessing` | Extract activations only |
 | `diffing` | Run diffing analysis only |
-| `evaluation` | Run agent evaluation only |
-
-## Diffing Methods
-
-| Method | Preprocessing | Description |
-|--------|--------------|-------------|
-| `activation_difference_lens` | No | Logit lens, patchscope, steering, token relevance |
-| `kl` | No | Per-token KL divergence between output distributions |
-| `activation_oracle` | No | Verbalizer model interprets activation differences |
-| `weight_amplification` | No | Amplify LoRA weight differences |
-| `pca` | Yes | PCA on activation differences |
-| `sae_difference` | Yes | Train SAEs on activation differences |
-| `crosscoder` | Yes | Train crosscoders on paired activations |
-| `activation_analysis` | Yes | L2 norm differences, max-activating examples |
-| `diff_mining` | Yes* | Top-K logit diff token occurrence, NMF topic clustering |
-
-*Supports in-memory mode (`diffing.method.in_memory=true`) to skip disk I/O when running `pipeline.mode=full`.
 
 ## Configuration
 
@@ -98,7 +70,7 @@ model=qwen3_1_7B
 organism_variant=mix1-0p5
 
 # Select diffing method
-diffing/method=activation_difference_lens
+diffing/method=crosscoder
 
 # Override method parameters
 diffing.method.n=256 diffing.method.batch_size=16
@@ -135,29 +107,6 @@ Base models are defined in `configs/model/`. Key fields:
 - `has_enable_thinking`: For models with thinking tokens
 - `disable_compile`: Whether to disable torch.compile
 
-## Agent Evaluation System
-
-The framework includes agentic evaluation to test how well diffing methods reveal finetuning behavior:
-
-1. **Blackbox Agent**: Baseline with model queries only
-2. **Method Agent**: Has access to method outputs + model queries
-
-Agents produce descriptions of what the model was finetuned for, graded against ground truth.
-
-Enable with:
-```bash
-diffing.evaluation.agent.enabled=true
-```
-
-## Adding New Methods
-
-See `docs/ADD_NEW_METHOD.MD`. Key steps:
-
-1. Create `src/diffing/methods/<your_method>/` with class inheriting `DiffingMethod`
-2. Implement: `run()`, `visualize()`, `has_results()`, `get_agent()`
-3. Add config: `configs/diffing/method/<your_method>.yaml`
-4. Register in `src/diffing/pipeline/diffing_pipeline.py:get_method_class()`
-
 ## Key Utilities
 
 ### Model Loading (`src/diffing/utils/model.py`)
@@ -192,10 +141,10 @@ Converted to absolute indices via `get_layer_indices()`.
 uv run pytest
 
 # Run specific test
-uv run pytest tests/test_activation_difference_lens.py -v
+uv run pytest tests/integration/test_method_run.py -v
 ```
 
-Integration tests in `tests/integration/` verify methods actually run.
+Integration tests in `tests/integration/` verify the crosscoder method runs end-to-end.
 
 ## Key Dependencies
 

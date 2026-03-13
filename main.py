@@ -15,8 +15,7 @@ from omegaconf import DictConfig, OmegaConf
 from loguru import logger
 import dotenv
 
-from diffing.pipeline.diffing_pipeline import DiffingPipeline, get_method_class
-from diffing.pipeline.evaluation_pipeline import EvaluationPipeline
+from diffing.pipeline.diffing_pipeline import DiffingPipeline
 from diffing.utils.configs import CONFIGS_DIR
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -91,16 +90,6 @@ def run_diffing_pipeline(cfg: DictConfig) -> None:
     logger.info("Diffing pipeline completed successfully")
 
 
-def run_evaluation_pipeline(cfg: DictConfig) -> None:
-    """Run the evaluation pipeline."""
-    logger.info("Starting evaluation pipeline...")
-
-    pipeline = EvaluationPipeline(cfg)
-    pipeline.run()
-
-    logger.info("Evaluation pipeline completed successfully")
-
-
 @hydra.main(version_base=None, config_path=str(CONFIGS_DIR), config_name="config")
 def main(cfg: DictConfig) -> None:
     """Main function that orchestrates the entire pipeline."""
@@ -116,7 +105,7 @@ def main(cfg: DictConfig) -> None:
     setup_environment(cfg)
 
     # Validate pipeline mode
-    valid_modes = ["full", "preprocessing", "diffing", "evaluation", "no_evaluation"]
+    valid_modes = ["full", "preprocessing", "diffing"]
     if cfg.pipeline.mode not in valid_modes:
         raise ValueError(
             f"Invalid pipeline mode: {cfg.pipeline.mode}. "
@@ -124,40 +113,11 @@ def main(cfg: DictConfig) -> None:
         )
 
     # Run pipeline based on mode
-    # Special case: in_memory mode for diff_mining with mode=full
-    # Shares a single method instance between preprocess() and run() to keep tensors in RAM
-    in_memory = False
-    if cfg.diffing.method.name == "diff_mining":
-        in_memory = getattr(cfg.diffing.method, "in_memory", False)
-    if (
-        (cfg.pipeline.mode == "full" or cfg.pipeline.mode == "no_evaluation")
-        and in_memory
-        and cfg.diffing.method.name == "diff_mining"
-    ):
-        logger.info(
-            "Running in-memory mode: preprocessing and diffing will share tensors in RAM"
-        )
-        method = get_method_class(cfg.diffing.method.name)(cfg)
-        method.preprocess()
-        method.run()
-    else:
-        # Standard disk-based flow
-        if (
-            cfg.pipeline.mode == "full"
-            or cfg.pipeline.mode == "preprocessing"
-            or cfg.pipeline.mode == "no_evaluation"
-        ):
-            run_preprocessing_pipeline(cfg)
+    if cfg.pipeline.mode in ("full", "preprocessing"):
+        run_preprocessing_pipeline(cfg)
 
-        if (
-            cfg.pipeline.mode == "full"
-            or cfg.pipeline.mode == "diffing"
-            or cfg.pipeline.mode == "no_evaluation"
-        ):
-            run_diffing_pipeline(cfg)
-
-    if cfg.pipeline.mode == "full" or cfg.pipeline.mode == "evaluation":
-        run_evaluation_pipeline(cfg)
+    if cfg.pipeline.mode in ("full", "diffing"):
+        run_diffing_pipeline(cfg)
 
     logger.info("Pipeline execution completed successfully")
 
