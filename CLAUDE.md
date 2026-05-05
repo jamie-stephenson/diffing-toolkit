@@ -151,6 +151,6 @@ Integration tests in `tests/integration/` verify the crosscoder method runs end-
 - `nnsight`: Model intervention/activation extraction
 - `nnterp`: Transformer interpretability utilities
 - `dictionary-learning`: SAE/crosscoder training (custom repo)
-- `vllm`: Fast inference for generation
+
 - `hydra-core`: Config composition
 - `streamlit`: Interactive dashboards

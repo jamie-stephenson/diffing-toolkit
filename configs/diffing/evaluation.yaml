@@ -29,7 +29,7 @@ agent:
   ask_model:
     max_new_tokens: 1024
     temperature: 0.8
-    use_vllm: true  # Add this line
+
 
   hints: ""
   baselines:

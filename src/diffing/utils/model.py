@@ -1,11 +1,9 @@
-from abc import ABC, abstractmethod
 import json
-from typing import Tuple, Dict, Any, Literal
+from typing import Tuple, Dict, Any
 import gc
 from pathlib import Path
 
 from loguru import logger
-import torch.nn as nn
 import torch as th
 from huggingface_hub import snapshot_download
 from transformers import (
@@ -22,7 +20,6 @@ from nnterp.interventions import (
 from nnterp.interventions import patchscope_lens as nnterp_patchscope_lens
 
 from .configs import ModelConfig
-from vllm import LLM, AsyncLLMEngine, AsyncEngineArgs
 
 _MODEL_CACHE: dict[str, StandardizedTransformer] = {}
 _TOKENIZER_CACHE: dict[str, PreTrainedTokenizerBase] = {}
@@ -36,9 +33,6 @@ def gc_collect_cuda_cache():
 
 
 def clear_cache():
-    for model in _MODEL_CACHE.values():
-        if isinstance(model, AsyncLLMEngine):
-            model.shutdown()
     _MODEL_CACHE.clear()
     _TOKENIZER_CACHE.clear()
     gc_collect_cuda_cache()
@@ -182,15 +176,13 @@ def load_model(
     subfolder: str = None,
     device_map: Any | None = None,
     trust_remote_code: bool = False,
-    use_vllm: bool | Literal["async"] = False,
-    vllm_kwargs: dict | None = None,
     ignore_cache: bool = False,
     chat_template: str | None = None,
-) -> StandardizedTransformer | LLM | AsyncLLMEngine:
+) -> StandardizedTransformer:
     """
     Load a model with optional LoRA adapters, with caching support.
 
-    Models are cached by a key combining model_name, dtype, attn_implementation, adapter_ids, and use_vllm.
+    Models are cached by a key combining model_name, dtype, attn_implementation, and adapter_ids.
     Adapter IDs are normalized (sorted, deduplicated) for consistent cache keys.
 
     Args:
@@ -208,14 +200,11 @@ def load_model(
             this is passed to load_adapter() for nested adapter paths.
         device_map: Device placement strategy. None uses "auto", or pass "cuda"/"cpu"/dict.
         trust_remote_code: Allow custom code execution for HF models.
-        use_vllm: False for StandardizedTransformer (default), True for vLLM.LLM, "async" for AsyncLLMEngine.
-            Note: vLLM does not support adapters.
-        vllm_kwargs: Custom kwargs to override vLLM defaults.
         ignore_cache: If True, forces reload even if model is cached.
         chat_template: Custom chat template for tokenizer.
 
     Returns:
-        StandardizedTransformer (default), vLLM.LLM (use_vllm=True), or AsyncLLMEngine (use_vllm="async").
+        StandardizedTransformer.
     """
     # Normalize adapter_ids to a list of (adapter_id, subfolder) tuples
     if isinstance(adapter_ids, str):
@@ -234,7 +223,7 @@ def load_model(
             adapter_ids = None
     adapter_ids_key = tuple(adapter_ids) if adapter_ids else None
     model_key = (
-        f"{model_name}_{dtype}_{attn_implementation}_{adapter_ids_key}_{use_vllm}"
+        f"{model_name}_{dtype}_{attn_implementation}_{adapter_ids_key}"
     )
 
     key = model_key
@@ -282,78 +271,36 @@ def load_model(
             from transformers import Qwen2_5_VLForConditionalGeneration
 
             automodel = Qwen2_5_VLForConditionalGeneration
-        if use_vllm:
-            logger.info(f"Loading model {model_name} with vLLM")
-            if adapter_ids is not None:
-                raise NotImplementedError(
-                    "Adapter support for vLLM is not implemented yet, as AFAIK it's something you pass as a LoRA request parameter"
-                )
-            vllm_default_kwargs: Dict[str, Any] = dict(
-                model=model_name,
-                tokenizer=tokenizer_id,
-                enable_prefix_caching=True,
-                enable_lora=adapter_ids is not None,
-                max_num_seqs=32,
-                gpu_memory_utilization=0.95,
-                trust_remote_code=trust_remote_code,
-                limit_mm_per_prompt={"image": 0},  # disable multi-modal support
-            )
-            if device_map in ["cpu", th.device("cpu")]:
-                device_map = "cpu"
-                tensor_parallel_size = None
-            if device_map == "auto":
-                tensor_parallel_size = th.cuda.device_count()
-            else:
-                tensor_parallel_size = 1  # single GPU
-                if isinstance(device_map, str):
-                    device_map = th.device(device_map)
-                vllm_default_kwargs["device"] = device_map
-            if use_vllm == "async":
-                vllm_default_kwargs["enable_log_requests"] = True
-            if vllm_kwargs is not None:
-                vllm_kwargs = {**vllm_default_kwargs, **vllm_kwargs}
-            else:
-                vllm_kwargs = vllm_default_kwargs
-            print(f"{vllm_kwargs=}")
-            if use_vllm == "async":
-                args = AsyncEngineArgs(**vllm_kwargs)
-                model = AsyncLLMEngine.from_engine_args(args)
-            else:
-                model = LLM(
-                    **vllm_kwargs,
-                    tensor_parallel_size=tensor_parallel_size,
-                )
+        if tokenizer_id is not None:
+            tokenizer = load_tokenizer(tokenizer_id, chat_template=chat_template)
         else:
-            if tokenizer_id is not None:
-                tokenizer = load_tokenizer(tokenizer_id, chat_template=chat_template)
-            else:
-                tokenizer = load_tokenizer(model_name, chat_template=chat_template)
-            if tokenizer.pad_token is None:
-                tokenizer.pad_token = tokenizer.eos_token
-            model = StandardizedTransformer(
-                model_name,
-                automodel=automodel,
-                tokenizer=tokenizer,
-                **fp_kwargs,
-            )
+            tokenizer = load_tokenizer(model_name, chat_template=chat_template)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        model = StandardizedTransformer(
+            model_name,
+            automodel=automodel,
+            tokenizer=tokenizer,
+            **fp_kwargs,
+        )
 
-            if no_auto_device_map and device_map is None:
-                model.to("cuda")
+        if no_auto_device_map and device_map is None:
+            model.to("cuda")
 
-            if adapter_ids:
-                model.dispatch()  # dispatch is needed to be able to load the adapters on the right device
-                for adapter_id, adapter_subfolder in adapter_ids:
-                    # Use sanitized name for consistent adapter naming (same as verbalizer.sanitize_lora_name)
-                    adapter_name = adapter_id.replace(".", "_")
-                    logger.info(f"Loading adapter: {adapter_id} as '{adapter_name}'")
-                    adapter_kwargs = (
-                        {"subfolder": adapter_subfolder} if adapter_subfolder else {}
-                    )
-                    model.load_adapter(
-                        adapter_id,
-                        adapter_name=adapter_name,
-                        adapter_kwargs=adapter_kwargs,
-                    )
+        if adapter_ids:
+            model.dispatch()  # dispatch is needed to be able to load the adapters on the right device
+            for adapter_id, adapter_subfolder in adapter_ids:
+                # Use sanitized name for consistent adapter naming (same as verbalizer.sanitize_lora_name)
+                adapter_name = adapter_id.replace(".", "_")
+                logger.info(f"Loading adapter: {adapter_id} as '{adapter_name}'")
+                adapter_kwargs = (
+                    {"subfolder": adapter_subfolder} if adapter_subfolder else {}
+                )
+                model.load_adapter(
+                    adapter_id,
+                    adapter_name=adapter_name,
+                    adapter_kwargs=adapter_kwargs,
+                )
 
     if steering_vector_name is not None and steering_layer_idx is not None:
         logger.info(f"Adding steering vector to layer {steering_layer_idx}")
@@ -373,10 +320,9 @@ def get_ft_model_id(model_cfg: ModelConfig) -> str:
 
 def load_model_from_config(
     model_cfg: ModelConfig,
-    use_vllm: bool | Literal["async"] = False,
     ignore_cache: bool = False,
     extra_adapter_ids: list[str | tuple[str, str]] | None = None,
-) -> StandardizedTransformer | LLM | AsyncLLMEngine:
+) -> StandardizedTransformer:
     """
     Load a model from config.
 
@@ -414,8 +360,6 @@ def load_model_from_config(
         subfolder=model_cfg.subfolder,
         device_map=model_cfg.device_map,
         trust_remote_code=model_cfg.trust_remote_code,
-        use_vllm=use_vllm,
-        vllm_kwargs=model_cfg.vllm_kwargs,
         ignore_cache=ignore_cache,
         chat_template=model_cfg.chat_template,
     )

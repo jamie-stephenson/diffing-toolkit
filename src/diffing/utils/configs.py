@@ -103,7 +103,7 @@ class ModelConfig:
     no_auto_device_map: bool = False
     device_map: object | None = None
     trust_remote_code: bool = False
-    vllm_kwargs: dict | None = None
+
     disable_compile: bool = False
     chat_template: str | None = None
 
@@ -164,7 +164,6 @@ def create_model_config(
         subfolder=model_cfg.get("subfolder", ""),
         device_map=device_map,
         trust_remote_code=model_cfg.get("trust_remote_code", False),
-        vllm_kwargs=model_cfg.get("vllm_kwargs", None),
         disable_compile=model_cfg.get("disable_compile", False),
         chat_template=model_cfg.get("chat_template", None),
     )
@@ -313,7 +312,6 @@ def get_model_configurations(cfg: DictConfig) -> Tuple[ModelConfig, ModelConfig]
         no_auto_device_map=base_model_cfg.no_auto_device_map,
         device_map=cfg.infrastructure.device_map.finetuned,
         trust_remote_code=base_model_cfg.trust_remote_code,
-        vllm_kwargs=base_model_cfg.vllm_kwargs,
         disable_compile=base_model_cfg.disable_compile,
         chat_template=base_model_cfg.chat_template,
     )

@@ -27,7 +27,7 @@ _FIELDS_VIA_DICTCONFIG = {
     "steering_layer": 12,
     "no_auto_device_map": True,
     "trust_remote_code": True,
-    "vllm_kwargs": {"gpu_memory_utilization": 0.9},
+
     "disable_compile": True,
     "chat_template": "{% for m in messages %}{{ m.content }}{% endfor %}",
 }
