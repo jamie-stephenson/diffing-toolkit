@@ -138,6 +138,7 @@ def collect_activations(
     ignore_first_n_tokens: int = 0,
     token_level_replacement: Optional[Any] = None,
     default_text_column: str = "text",
+    hookpoint: str = "layer_output",
 ) -> None:
     """
     Collect and store activations from specified layers of a language model.
@@ -208,14 +209,38 @@ def collect_activations(
         if layer >= num_layers:
             raise ValueError(f"Layer {layer} exceeds model layers (0-{num_layers-1})")
 
-    logger.info(f"Collecting activations from layers: {layers}")
+    logger.info(f"Collecting activations from layers: {layers}, hookpoint: {hookpoint}")
 
-    # Set up submodules
-    submodules = [model.layers[layer] for layer in layers]
-    submodule_names = [f"layer_{layer}" for layer in layers]
+    # Set up submodules based on hookpoint
+    if hookpoint == "layer_output":
+        submodules = [model.layers[layer] for layer in layers]
+        submodule_names = [f"layer_{layer}" for layer in layers]
+        io = "out"
+    elif hookpoint == "ln1":
+        # Input to self-attention = output of first layer norm
+        submodules = [model.attentions[layer] for layer in layers]
+        submodule_names = [f"layer_{layer}_ln1" for layer in layers]
+        io = "in"
+    elif hookpoint == "resid_mid":
+        # Input to second layer norm = residual stream after attention (pre-LN2)
+        submodules = [model.layers[layer].ln_2 for layer in layers]
+        submodule_names = [f"layer_{layer}_resid_mid" for layer in layers]
+        io = "in"
+    elif hookpoint == "crosslayer":
+        # Collect both ln1 and resid_mid in one pass for cross-layer crosscoder
+        submodules = []
+        submodule_names = []
+        for layer in layers:
+            submodules.append(model.attentions[layer])
+            submodule_names.append(f"layer_{layer}_ln1")
+            submodules.append(model.layers[layer].ln_2)
+            submodule_names.append(f"layer_{layer}_resid_mid")
+        io = "in"
+    else:
+        raise ValueError(f"Unknown hookpoint: {hookpoint!r}. Choose from: layer_output, ln1, resid_mid, crosslayer")
 
     exists, num_toks = ActivationCache.exists(
-        out_dir, submodule_names, "out", store_tokens
+        out_dir, submodule_names, io, store_tokens
     )
     if not overwrite and exists:
         logger.info(
@@ -272,7 +297,7 @@ def collect_activations(
         model,
         out_dir,
         shuffle_shards=False,
-        io="out",
+        io=io,
         shard_size=10**7,
         batch_size=batch_size,
         context_len=context_len,

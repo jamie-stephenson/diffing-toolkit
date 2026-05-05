@@ -327,7 +327,9 @@ def collect_dictionary_activations(
                 [
                     s,
                     torch.full(
-                        (max_len - len(s),), tokenizer.pad_token_id, device=s.device
+                        (max_len - len(s),),
+                        tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id,
+                        device=s.device,
                     ),
                 ]
             )

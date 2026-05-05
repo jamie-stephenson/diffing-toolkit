@@ -127,6 +127,7 @@ pipeline:
 preprocessing:
   activation_store_dir: ${infrastructure.storage.base_dir}/activations
   layers: [0.5]  # layers to extract activations from
+  hookpoint: layer_output  # layer_output, ln1, resid_mid, or crosslayer
   max_samples_per_dataset: 1_000
   max_tokens_per_dataset_train: 50_000
   max_tokens_per_dataset_validation: 1_000
@@ -166,3 +167,4 @@ hydra:
 wandb:
   enabled: true
   entity: "jamiestephenson"
+  run_name: null

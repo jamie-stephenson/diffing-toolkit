@@ -23,6 +23,7 @@ from dictionary_learning.cache import (
 from dictionary_learning.training import trainSAE
 
 from ..activations import (
+    CrosslayerPairedActivationCache,
     load_activation_datasets_from_config,
     get_local_shuffled_indices,
     calculate_samples_per_dataset,
@@ -69,6 +70,37 @@ def combine_normalizer(
         [running_stats_1.std(unbiased=False), running_stats_2.std(unbiased=False)],
         dim=0,
     )
+    return mean, std
+
+
+def combine_crosslayer_normalizer(
+    caches: List[CrosslayerPairedActivationCache],
+    device: str = "cpu",
+    layer: int = None,
+    n: int = 0,
+    subsample_size: int = 1000,
+    batch_size: int = 4096,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Compute normalizer for 4-stream crosslayer caches by merging per-stream running stats."""
+    if isinstance(caches[0], torch.utils.data.Subset):
+        return recompute_normalizer(
+            caches,
+            subsample_size=subsample_size,
+            batch_size=batch_size,
+            device=device,
+            layer=layer,
+            n=n,
+        )
+    running_stats_all = [None] * 4
+    for cache in caches:
+        for i, sub_cache in enumerate(cache.caches):
+            rs = sub_cache.running_stats
+            if running_stats_all[i] is None:
+                running_stats_all[i] = rs
+            else:
+                running_stats_all[i].merge(rs)
+    mean = torch.stack([rs.mean for rs in running_stats_all], dim=0)
+    std = torch.stack([rs.std(unbiased=False) for rs in running_stats_all], dim=0)
     return mean, std
 
 
@@ -278,13 +310,18 @@ def setup_training_datasets(
     else:
         epoch_numbers = None
     # Load validation datasets
+    organism_overrides = cfg.organism.get("preprocessing_overrides", {})
+    use_test_as_val = organism_overrides.get(
+        "use_test_as_val", training_cfg.get("use_test_as_val", False)
+    )
+    val_split = "test" if use_test_as_val else "validation"
     caches_val = load_activation_datasets_from_config(
         cfg=cfg,
         ds_cfgs=dataset_cfgs,
         base_model_cfg=base_model_cfg,
         finetuned_model_cfg=finetuned_model_cfg,
         layers=[layer],
-        split="validation",
+        split=val_split,
     )
 
     # Collapse layers
@@ -411,14 +448,17 @@ def crosscoder_run_name(
     model_type = method_cfg.model.type
     code_normalization = method_cfg.model.code_normalization
 
+    hookpoint = cfg.preprocessing.get("hookpoint", "layer_output")
+    hookpoint_suffix = "" if hookpoint == "layer_output" else f"-{hookpoint}"
+
     if model_type == "relu":
         run_name = (
-            f"{base_model_cfg.name}-{cfg.organism.name}-L{layer}-mu{mu:.1e}-lr{lr:.0e}-x{expansion_factor}"
+            f"{base_model_cfg.name}-{cfg.organism.name}-L{layer}{hookpoint_suffix}-mu{mu:.1e}-lr{lr:.0e}-x{expansion_factor}"
             + f"-{code_normalization.capitalize()}Loss"
         )
     elif model_type == "batch-top-k":
         run_name = (
-            f"{base_model_cfg.name}-{cfg.organism.name}-L{layer}"
+            f"{base_model_cfg.name}-{cfg.organism.name}-L{layer}{hookpoint_suffix}"
             + f"-{code_normalization.capitalize()}"
         )
     else:
@@ -455,6 +495,7 @@ def create_crosscoder_trainer_config(
     normalize_mean: torch.Tensor,
     normalize_std: torch.Tensor,
     run_name: str,
+    num_layers: int = 2,
 ) -> Dict[str, Any]:
     """
     Create trainer configuration from method settings.
@@ -495,6 +536,7 @@ def create_crosscoder_trainer_config(
     common_config = {
         "activation_dim": activation_dim,
         "dict_size": dictionary_size,
+        "num_layers": num_layers,
         "lr": lr,
         "device": device,
         "warmup_steps": warmup_steps,
@@ -549,31 +591,53 @@ def train_crosscoder_for_layer(
     run_name: str,
 ) -> Dict[str, Any]:
     """
-    Train crosscoder for a specific layer (original implementation).
+    Train crosscoder for a specific layer.
+
+    Supports standard 2-stream (base vs finetuned) and 4-stream crosslayer training
+    controlled by cfg.preprocessing.hookpoint.
     """
-    logger.info(f"Training crosscoder for layer {layer_idx}")
+    hookpoint = cfg.preprocessing.get("hookpoint", "layer_output")
+    is_crosslayer = hookpoint == "crosslayer"
+    num_layers = 4 if is_crosslayer else 2
+    logger.info(f"Training crosscoder for layer {layer_idx}, hookpoint={hookpoint}")
+
+    if is_crosslayer:
+        normalizer_fn = (
+            (
+                lambda x: combine_crosslayer_normalizer(
+                    x,
+                    device=device,
+                    layer=layer_idx,
+                    n=cfg.model.ignore_first_n_tokens_per_sample_during_training,
+                    subsample_size=cfg.diffing.method.datasets.normalization.subsample_size,
+                    batch_size=cfg.diffing.method.datasets.normalization.batch_size,
+                )
+            )
+            if cfg.diffing.method.datasets.normalization.enabled
+            else None
+        )
+    else:
+        normalizer_fn = (
+            (
+                lambda x: combine_normalizer(
+                    x,
+                    device=device,
+                    layer=layer_idx,
+                    n=cfg.model.ignore_first_n_tokens_per_sample_during_training,
+                    subsample_size=cfg.diffing.method.datasets.normalization.subsample_size,
+                    batch_size=cfg.diffing.method.datasets.normalization.batch_size,
+                )
+            )
+            if cfg.diffing.method.datasets.normalization.enabled
+            else None
+        )
 
     # Setup training datasets
     train_dataset, val_dataset, epoch_idx_per_step, normalize_mean, normalize_std = (
         setup_training_datasets(
             cfg,
             layer_idx,
-            normalizer_function=(
-                (
-                    lambda x: (
-                        combine_normalizer(
-                            x,
-                            device=device,
-                            layer=layer_idx,
-                            n=cfg.model.ignore_first_n_tokens_per_sample_during_training,
-                            subsample_size=cfg.diffing.method.datasets.normalization.subsample_size,
-                            batch_size=cfg.diffing.method.datasets.normalization.batch_size,
-                        )
-                    )
-                )
-                if cfg.diffing.method.datasets.normalization.enabled
-                else None
-            ),
+            normalizer_function=normalizer_fn,
             dataset_processing_function=lambda x: skip_first_n_tokens(
                 x, cfg.model.ignore_first_n_tokens_per_sample_during_training
             ),
@@ -585,11 +649,12 @@ def train_crosscoder_for_layer(
     activation_dim = sample_activation.shape[-1]
 
     assert activation_dim > 0, f"Invalid activation dimension: {activation_dim}"
-    logger.info(f"Activation dimension: {activation_dim}")
+    logger.info(f"Activation dimension: {activation_dim}, num_layers: {num_layers}")
 
     # Create trainer configuration
     trainer_config = create_crosscoder_trainer_config(
-        cfg, layer_idx, activation_dim, device, normalize_mean, normalize_std, run_name
+        cfg, layer_idx, activation_dim, device, normalize_mean, normalize_std, run_name,
+        num_layers=num_layers,
     )
 
     # Create data loaders
@@ -619,6 +684,15 @@ def train_crosscoder_for_layer(
         f"{cfg.infrastructure.storage.checkpoint_dir}/{trainer_config['wandb_name']}"
     )
 
+    # Apply dead_feature_threshold override if specified (library hardcodes 10M)
+    dead_feature_threshold = cfg.diffing.method.training.get("dead_feature_threshold", None)
+    _orig_init = BatchTopKCrossCoderTrainer.__init__
+    if dead_feature_threshold is not None:
+        def _patched_init(self, *args, **kwargs):
+            _orig_init(self, *args, **kwargs)
+            self.dead_feature_threshold = dead_feature_threshold
+        BatchTopKCrossCoderTrainer.__init__ = _patched_init
+
     # Train the crosscoder
     model, last_eval_logs = trainSAE(
         data=train_dataloader,
@@ -636,6 +710,9 @@ def train_crosscoder_for_layer(
         epoch_idx_per_step=epoch_idx_per_step,
         return_last_eval_logs=True,
     )
+
+    if dead_feature_threshold is not None:
+        BatchTopKCrossCoderTrainer.__init__ = _orig_init
 
     wandb_link = None
     hf_repo_id = None
@@ -658,6 +735,8 @@ def train_crosscoder_for_layer(
     # Collect training metrics
     training_metrics = {
         "layer": layer_idx,
+        "hookpoint": hookpoint,
+        "num_layers": num_layers,
         "activation_dim": activation_dim,
         "dictionary_size": trainer_config["dict_size"],
         "training_steps": max_steps,

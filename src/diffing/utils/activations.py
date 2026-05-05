@@ -1,8 +1,8 @@
 from transformers import AutoConfig
-from typing import Union, List
+from typing import Union, List, Optional
 from transformers import PretrainedConfig
 from loguru import logger
-from dictionary_learning.cache import PairedActivationCache
+from dictionary_learning.cache import PairedActivationCache, ActivationCache
 from pathlib import Path
 from omegaconf import DictConfig
 import torch
@@ -86,6 +86,46 @@ def torch_quantile(
         return out.squeeze(dim)
 
     return out
+
+
+def hookpoint_to_submodule_name(hookpoint: str, layer: int) -> str:
+    """Map a hookpoint name and layer index to the ActivationCache submodule_name."""
+    if hookpoint == "layer_output":
+        return f"layer_{layer}_out"
+    elif hookpoint == "ln1":
+        return f"layer_{layer}_ln1_in"
+    elif hookpoint == "resid_mid":
+        return f"layer_{layer}_resid_mid_in"
+    else:
+        raise ValueError(f"Unknown hookpoint {hookpoint!r} for single-cache loading. Use load_crosslayer_activation_dataset for crosslayer.")
+
+
+class CrosslayerPairedActivationCache:
+    """4-stream cache for cross-layer crosscoder: [base_ln1, ft_ln1, base_resid_mid, ft_resid_mid]."""
+
+    def __init__(
+        self,
+        base_cache_ln1: ActivationCache,
+        ft_cache_ln1: ActivationCache,
+        base_cache_resid_mid: ActivationCache,
+        ft_cache_resid_mid: ActivationCache,
+    ):
+        self.caches = [base_cache_ln1, ft_cache_ln1, base_cache_resid_mid, ft_cache_resid_mid]
+        self._len = min(len(c) for c in self.caches)
+
+    def __len__(self) -> int:
+        return self._len
+
+    def __getitem__(self, index):
+        return torch.stack([c[index] for c in self.caches], dim=0)
+
+    @property
+    def sequence_ranges(self):
+        return self.caches[0].sequence_ranges
+
+    @property
+    def running_stats(self):
+        return [c.running_stats for c in self.caches]
 
 
 def get_layer_indices(model: Union[str, object], layers: List[float]) -> List[int]:
@@ -269,6 +309,7 @@ def load_activation_dataset(
     finetuned_model: str = "gemma-2-2b-it",
     text_column: str = None,
     layer: int = 13,
+    hookpoint: str = "layer_output",
 ):
     """
     Load the saved activations of the base and finetuned models for a given layer and dataset.
@@ -281,29 +322,30 @@ def load_activation_dataset(
         finetuned_model: The finetuned model identifier (default: "gemma-2-2b-it")
         text_column: The name of the text column in the dataset (default: None). If not None and not "text", the split will be appended with the text column name (e.g., "train_col_formatedbase").
         layer: The layer number to load activations from (default: 13)
+        hookpoint: Which hookpoint to load (layer_output, ln1, resid_mid, or crosslayer)
 
     Returns:
-        PairedActivationCache: A cache containing paired activations from both models
+        PairedActivationCache or CrosslayerPairedActivationCache
     """
-    # Load validation datase
     activation_store_dir = Path(activation_store_dir)
     base_model_dir = activation_store_dir / base_model
-    instruct_model_dir = activation_store_dir / finetuned_model
-
-    submodule_name = f"layer_{layer}_out"
+    finetuned_model_dir = activation_store_dir / finetuned_model
 
     if text_column is not None and text_column != "text":
         split = split + f"_col_{text_column}"
 
-    # Load validation caches
-    base_model_cache = base_model_dir / dataset_name / split
-    finetuned_model_cache = instruct_model_dir / dataset_name / split
+    base_split_dir = base_model_dir / dataset_name / split
+    ft_split_dir = finetuned_model_dir / dataset_name / split
 
-    cache = PairedActivationCache(
-        base_model_cache, finetuned_model_cache, submodule_name
-    )
+    if hookpoint == "crosslayer":
+        base_ln1 = ActivationCache(str(base_split_dir), f"layer_{layer}_ln1_in")
+        ft_ln1 = ActivationCache(str(ft_split_dir), f"layer_{layer}_ln1_in")
+        base_resid_mid = ActivationCache(str(base_split_dir), f"layer_{layer}_resid_mid_in")
+        ft_resid_mid = ActivationCache(str(ft_split_dir), f"layer_{layer}_resid_mid_in")
+        return CrosslayerPairedActivationCache(base_ln1, ft_ln1, base_resid_mid, ft_resid_mid)
 
-    return cache
+    submodule_name = hookpoint_to_submodule_name(hookpoint, layer)
+    return PairedActivationCache(str(base_split_dir), str(ft_split_dir), submodule_name)
 
 
 def load_activation_datasets(
@@ -314,18 +356,10 @@ def load_activation_datasets(
     finetuned_model: str = "gemma-2-2b-it",
     layers: list[int] = [13],
     text_columns: str = None,
+    hookpoint: str = "layer_output",
 ):
     """
     Load the saved activations of the base and instruct models for multiple datasets and layers.
-
-    Args:
-        activation_store_dir: The directory where the activations are stored
-        split: The split to load
-        dataset_names: List of dataset names to load
-        base_model: The base model to load
-        finetuned_model: The finetuned model to load
-        layers: List of layers to load
-        text_columns: List of text columns to load. If not None, the split will be appended with the text column name (e.g., "train_col_formatedbase").
 
     Returns:
         A dict mapping dataset_name -> {layer: PairedActivationCache, ...}
@@ -344,6 +378,7 @@ def load_activation_datasets(
                 finetuned_model=finetuned_model,
                 layer=layer,
                 text_column=text_columns[i] if text_columns is not None else None,
+                hookpoint=hookpoint,
             )
 
             result[dataset_name][layer] = cache
@@ -362,17 +397,10 @@ def load_activation_dataset_from_config(
     """
     Load saved activations for a specific dataset and layer using configuration objects.
 
-    Args:
-        cfg: Full configuration containing activation store directory
-        ds_cfg: Dataset configuration specifying split, name, and text column
-        base_model_cfg: Base model configuration with model_id
-        finetuned_model_cfg: Finetuned model configuration with model_id
-        layer: Layer index to load activations for
-
     Returns:
-        PairedActivationCache containing base and finetuned model activations
+        PairedActivationCache or CrosslayerPairedActivationCache
     """
-
+    hookpoint = cfg.preprocessing.get("hookpoint", "layer_output")
     return load_activation_dataset(
         activation_store_dir=cfg.preprocessing.activation_store_dir,
         split=split,
@@ -381,6 +409,7 @@ def load_activation_dataset_from_config(
         finetuned_model=get_safe_model_id(finetuned_model_cfg),
         layer=layer,
         text_column=ds_cfg.text_column,
+        hookpoint=hookpoint,
     )
 
 

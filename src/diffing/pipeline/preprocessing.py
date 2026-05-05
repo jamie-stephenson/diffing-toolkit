@@ -143,6 +143,10 @@ class PreprocessingPipeline(Pipeline):
                 "disable_multiprocessing",
                 self.preprocessing_cfg.disable_multiprocessing,
             ),
+            "hookpoint": organism_overrides.get(
+                "hookpoint",
+                self.preprocessing_cfg.get("hookpoint", "layer_output"),
+            ),
         }
 
         # Set dtype
@@ -183,6 +187,7 @@ class PreprocessingPipeline(Pipeline):
             ignore_first_n_tokens=model_cfg.ignore_first_n_tokens_per_sample_during_collection,
             token_level_replacement=model_cfg.token_level_replacement,
             default_text_column=model_cfg.text_column,
+            hookpoint=preprocessing_params["hookpoint"],
         )
         self.logger.info(
             f"Successfully collected activations: {model_cfg.name} + {dataset_cfg.name}"
@@ -237,6 +242,7 @@ class PreprocessingPipeline(Pipeline):
         if self.preprocessing_cfg.training_only:
             self.logger.info(f"Collecting training dataset only")
 
+        organism_overrides = self.cfg.organism.get("preprocessing_overrides", {})
         if self.preprocessing_cfg.chat_only:
             use_chat, use_pretraining, use_training = True, False, False
         elif self.preprocessing_cfg.pretraining_only:
@@ -244,7 +250,9 @@ class PreprocessingPipeline(Pipeline):
         elif self.preprocessing_cfg.training_only:
             use_chat, use_pretraining, use_training = False, False, True
         else:
-            use_chat, use_pretraining, use_training = True, True, True
+            use_chat = organism_overrides.get("use_chat_dataset", True)
+            use_pretraining = organism_overrides.get("use_pretraining_dataset", True)
+            use_training = True
 
         dataset_configs = get_dataset_configurations(
             self.cfg,

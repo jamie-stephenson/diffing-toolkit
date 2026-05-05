@@ -139,7 +139,15 @@ class CrosscoderDiffingMethod(DiffingMethod):
                     open(model_results_dir / "training_metrics.json")
                 )
 
-            if self.method_cfg.analysis.enabled:
+            hookpoint = self.cfg.preprocessing.get("hookpoint", "layer_output")
+            is_crosslayer = hookpoint == "crosslayer"
+
+            if self.method_cfg.analysis.enabled and is_crosslayer:
+                logger.warning(
+                    "Full analysis pipeline is not yet supported for crosslayer crosscoders. Skipping analysis."
+                )
+
+            if self.method_cfg.analysis.enabled and not is_crosslayer:
                 logger.info(f"Storing analysis results in {model_results_dir}")
                 local_model_path = str(model_results_dir / "dictionary_model")
                 dict_ref = (
